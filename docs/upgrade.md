@@ -13,8 +13,8 @@ This document describes a phased upgrade plan for the `safe` CLI application (va
 
 ```
 Phase 1 (Tests) → Phase 2 (Split) → Phase 3 (Go Upgrade) → Phase 4 (Package Rename) → Phase 5 (Sync Feature)
-                                                                                          ↗
-Phase 6 (This Document) ────────────────────────────────── can run in parallel ───────────
+                                                                                              ↓
+                                                                                        Phase 6 (Completion)
 ```
 
 ---
@@ -438,6 +438,233 @@ Phase 4 must be complete (new package uses renamed module path)
 
 ---
 
+## Phase 6: Shell Completion (bash, zsh, fish)
+
+### Goal
+
+Add shell autocompletion support for all 47+ commands, subcommands, and flags. Currently the project has zero completion support, and the CLI framework (`github.com/jhunt/go-cli` from 2017) provides no built-in completion generation.
+
+### Strategy: Custom Generator
+
+Build a custom `completion/` package that:
+- Extracts command names from `Runner.Topics` and flags from `Options` struct tags via reflection
+- Generates static completion scripts for **bash**, **zsh**, and **fish**
+- Exposes via `safe completion <shell>` command (outputs script to stdout)
+
+This avoids migrating to Cobra (which would touch the entire codebase) while providing full completion support.
+
+### 6.1 New Package: `completion/`
+
+```
+completion/
+├── completion.go      — CommandInfo, FlagInfo types, ExtractCommands()
+├── bash.go            — GenerateBash(commands) → string
+├── zsh.go             — GenerateZsh(commands) → string
+├── fish.go            — GenerateFish(commands) → string
+└── completion_test.go — Unit tests
+```
+
+### 6.2 Core Types (`completion/completion.go`)
+
+```go
+package completion
+
+// CommandInfo describes a registered CLI command
+type CommandInfo struct {
+    Name        string      // e.g. "get", "x509 issue"
+    Summary     string      // from Help.Summary
+    Flags       []FlagInfo  // parsed from Options struct cli tags
+    Subcommands []string    // e.g. x509 → [validate, issue, revoke, ...]
+}
+
+// FlagInfo describes a single command flag
+type FlagInfo struct {
+    Short       string  // e.g. "-k"
+    Long        string  // e.g. "--insecure"
+    Description string
+}
+
+// ExtractCommands builds the command tree from Runner topics
+// and Options struct (via reflection on `cli` struct tags)
+func ExtractCommands(topics map[string]*Help, optType reflect.Type) []CommandInfo
+```
+
+### 6.3 Bash Completion (`completion/bash.go`)
+
+Generates a `_safe_completions()` function using `complete -F`:
+
+```bash
+_safe_completions() {
+    local cur prev commands
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    commands="ask auth copy curl delete dhparam env exists export fmt gen get help import init local logout ls move option paste paths prompt rekey renew revert rsa seal set ssh status sync target targets tree undelete unseal uuid vault version versions x509"
+
+    if [[ ${COMP_CWORD} -eq 1 ]]; then
+        COMPREPLY=($(compgen -W "${commands}" -- "${cur}"))
+        return
+    fi
+
+    case "${prev}" in
+        x509)   COMPREPLY=($(compgen -W "validate issue reissue renew revoke show crl" -- "${cur}")) ;;
+        sync)   COMPREPLY=($(compgen -W "pull plan apply" -- "${cur}")) ;;
+        target) COMPREPLY=($(compgen -W "delete" -- "${cur}")) ;;
+    esac
+
+    case "${COMP_WORDS[1]}" in
+        get|read|cat) COMPREPLY=($(compgen -W "--keys --yaml" -- "${cur}")) ;;
+        # ... per-command flags ...
+    esac
+}
+complete -F _safe_completions safe
+```
+
+### 6.4 Zsh Completion (`completion/zsh.go`)
+
+Generates `_safe` function using zsh's `_arguments` / `_describe`:
+
+```zsh
+#compdef safe
+_safe() {
+    local -a commands
+    commands=(
+        'ask:Create or update a secret (prompt visible)'
+        'auth:Authenticate to a Vault'
+        # ... all commands with descriptions ...
+    )
+    _arguments -C \
+        '-k[Skip TLS verification]' \
+        '--insecure[Skip TLS verification]' \
+        '-T[Target a specific Vault]:target:' \
+        '1:command:->cmd' '*::arg:->args'
+
+    case $state in
+        cmd) _describe 'safe commands' commands ;;
+        args)
+            case $words[1] in
+                x509)  _describe 'x509 subcommands' x509cmds ;;
+                sync)  _describe 'sync subcommands' synccmds ;;
+                # ... per-command flags ...
+            esac ;;
+    esac
+}
+_safe "$@"
+```
+
+### 6.5 Fish Completion (`completion/fish.go`)
+
+Generates `complete -c safe` statements:
+
+```fish
+complete -c safe -n '__fish_use_subcommand' -a 'get' -d 'Retrieve a secret'
+complete -c safe -n '__fish_use_subcommand' -a 'set' -d 'Create or update a secret'
+# ... all commands ...
+complete -c safe -s k -l insecure -d 'Skip TLS verification'
+complete -c safe -n '__fish_seen_subcommand_from x509' -a 'issue' -d 'Issue certificate'
+complete -c safe -n '__fish_seen_subcommand_from sync' -a 'plan' -d 'Show planned changes'
+# ... subcommands and per-command flags ...
+```
+
+### 6.6 Dynamic Completions (Phase 6b — optional)
+
+For real-time Vault path completion:
+- Add hidden `safe __complete <command> <partial>` command
+- Reads target from `~/.saferc`, connects to Vault, calls `v.List(prefix)`
+- Outputs matching paths (one per line)
+- Bash/zsh/fish scripts call this for argument completion on commands like `get`, `set`, `tree`, `ls`, `delete`
+
+Also complete target names from `~/.saferc` for `-T`/`--target` flag.
+
+### 6.7 CLI Registration (`cmd_completion.go`)
+
+```go
+package main
+
+func registerCompletionCommands(r *Runner, opt *Options) {
+    r.Dispatch("completion", &Help{
+        Summary: "Generate shell completion scripts",
+        Usage:   "safe completion <bash|zsh|fish>",
+        Type:    AdministrativeCommand,
+    }, func(command string, args ...string) error {
+        cmds := completion.ExtractCommands(r.Topics, reflect.TypeOf(*opt))
+        switch args[0] {
+        case "bash": fmt.Print(completion.GenerateBash(cmds))
+        case "zsh":  fmt.Print(completion.GenerateZsh(cmds))
+        case "fish": fmt.Print(completion.GenerateFish(cmds))
+        }
+        return nil
+    })
+
+    // Hidden command for dynamic completions (Phase 6b)
+    r.Dispatch("__complete", nil, func(command string, args ...string) error { ... })
+}
+```
+
+Usage:
+```bash
+# Bash — add to ~/.bashrc
+source <(safe completion bash)
+
+# Zsh — add to ~/.zshrc
+source <(safe completion zsh)
+
+# Fish — save to completions dir
+safe completion fish > ~/.config/fish/completions/safe.fish
+```
+
+### 6.8 Files to Create/Modify
+
+| Action | File |
+|--------|------|
+| Create | `completion/completion.go` — types + `ExtractCommands` |
+| Create | `completion/bash.go` — `GenerateBash` |
+| Create | `completion/zsh.go` — `GenerateZsh` |
+| Create | `completion/fish.go` — `GenerateFish` |
+| Create | `completion/completion_test.go` — unit tests |
+| Create | `cmd_completion.go` — `registerCompletionCommands` + `__complete` |
+| Modify | `main.go` — add `Completion` to `Options` struct, call `registerCompletionCommands` |
+| Modify | `Makefile` — add `completions` target |
+
+### 6.9 Makefile Integration
+
+```makefile
+completions: build
+    ./safe completion bash > completions/safe.bash
+    ./safe completion zsh  > completions/_safe
+    ./safe completion fish > completions/safe.fish
+
+release: build completions
+    # include completions/ in release artifacts
+```
+
+### 6.10 Testing (`completion/completion_test.go`)
+
+| Test | Description |
+|------|------------|
+| `ExtractCommands` | Mock Topics map + Options type → verify full command list |
+| `GenerateBash` | Output contains `complete -F`, all command names, key flags |
+| `GenerateZsh` | Output contains `#compdef safe`, `_safe`, command descriptions |
+| `GenerateFish` | Output contains `complete -c safe`, subcommand conditions |
+| Syntax validation | `safe completion bash \| bash -n`, `safe completion zsh \| zsh -n` |
+
+### Verification
+
+```bash
+go build .
+go test ./completion/...
+./safe completion bash | bash -n   # syntax check
+./safe completion zsh  | zsh -n    # syntax check
+# Manual: source completion and test TAB after "safe "
+```
+
+### Estimated Effort
+3–4 days (+ 1–2 days for dynamic completions in Phase 6b)
+
+### Dependencies
+Phase 2 (split files — cleaner integration) and Phase 5 (sync commands must be included in completion list)
+
+---
+
 ## Summary
 
 | Phase | Description | Effort | Dependencies |
@@ -447,7 +674,18 @@ Phase 4 must be complete (new package uses renamed module path)
 | **Phase 3** | Upgrade Go 1.14 → 1.22 | 2–3 days | Phase 2 |
 | **Phase 4** | Rename package to `github.com/SomeBlackMagic/vault-cli-manager` | 0.5–1 day | Phase 3 |
 | **Phase 5** | Filesystem-based KV sync (pull/plan/apply) | 5–8 days | Phase 4 |
-| **Total** | | **13.5–22 days** | |
+| **Phase 6** | Shell completion (bash/zsh/fish) | 3–4 days | Phase 2, Phase 5 |
+| **Total** | | **16.5–26 days** | |
+
+## Dependency Graph
+
+```
+Phase 1 (Tests) → Phase 2 (Split) → Phase 3 (Go Upgrade) → Phase 4 (Rename) → Phase 5 (Sync)
+                                                                                    ↓
+                                                                               Phase 6 (Completion)
+
+Phase 6 (this doc) ─────────────── can run in parallel ──────────────────────────────
+```
 
 ## Architectural Decisions
 
@@ -456,17 +694,19 @@ Phase 4 must be complete (new package uses renamed module path)
 3. **Ginkgo v2 migration** — v1 is unmaintained; Go 1.22 has better compatibility with v2
 4. **JSON format** for local sync files — easy to diff, wide tooling support, `vault.Secret` already has `MarshalJSON`/`UnmarshalJSON`
 5. **Module rename** as a separate phase after Go upgrade — minimizes risk by isolating import path changes from dependency updates
+6. **Custom completion generator** instead of Cobra migration — `go-cli` has no completion support, Cobra migration would touch the entire codebase. Custom generator uses reflection on `Options` struct `cli` tags + `Runner.Topics` map
 
 ## Critical Files Reference
 
 | File | Role | Affected Phases |
 |------|------|----------------|
-| `main.go` (4,484 lines) | All 45 commands, Options struct, `connect()` | 1, 2, 4, 5 |
+| `main.go` (4,484 lines) | All 45 commands, Options struct, `connect()` | 1, 2, 4, 5, 6 |
 | `vault/vault.go` (1,151 lines) | Vault client CRUD, mounts, PKI | 1, 2, 3 |
 | `vault/secret.go` (285 lines) | `Secret` struct — core data type | 1 |
 | `vault/tree.go` (~500 lines) | `ConstructSecrets`, tree traversal | 1, 5 |
 | `vault/x509.go` (~600 lines) | X.509 certificates, CRL | 2, 3 |
-| `rc/config.go` (7,310 lines) | Configuration management | 1, 3 |
+| `rc/config.go` (7,310 lines) | Configuration management | 1, 3, 6 |
+| `runner.go` (124 lines) | Command dispatcher — `Topics` map used for completion | 1, 6 |
 | `go.mod` | Module definition, dependencies | 3, 4 |
-| `Makefile` | Build targets | 3 |
+| `Makefile` | Build targets | 3, 6 |
 | `ci/pipeline.yml` | CI/CD pipeline | 3 |
