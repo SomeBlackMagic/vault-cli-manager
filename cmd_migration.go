@@ -417,7 +417,7 @@ rting garbage data and then destroying it (which is originally done to preserve 
 			var unmarshalTarget []exportFormat
 			err := json.Unmarshal(input, &unmarshalTarget)
 			if err != nil {
-				return fmt.Errorf("Could not interpret export file: %s", err)
+				return fmt.Errorf("Could not interpret export file: %w", err)
 			}
 
 			if len(unmarshalTarget) != 1 {
@@ -435,7 +435,7 @@ rting garbage data and then destroying it (which is originally done to preserve 
 					if needsVersioning {
 						mountVersion, err := v.MountVersion(mount)
 						if err != nil {
-							return fmt.Errorf("Could not determine existing mount version: %s", err)
+							return fmt.Errorf("Could not determine existing mount version: %w", err)
 						}
 
 						if mountVersion != 2 {

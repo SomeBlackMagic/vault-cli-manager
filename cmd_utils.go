@@ -60,7 +60,7 @@ Supported formats:
 			if vault.IsNotFound(err) {
 				return fmt.Errorf("%s:%s does not exist, cannot create %s encoded copy at %s:%s", path, oldKey, fmtType, path, newKey)
 			}
-			return fmt.Errorf("Error encoding %s:%s as %s: %s", path, oldKey, fmtType, err)
+			return fmt.Errorf("Error encoding %s:%s as %s: %w", path, oldKey, fmtType, err)
 		}
 
 		return v.Write(path, s)

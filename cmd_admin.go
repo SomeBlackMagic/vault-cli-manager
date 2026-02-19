@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
-	
 	"net"
 	"os"
 	"os/exec"
@@ -52,14 +51,16 @@ The following options are recognized:
 		if cfg.HasStrongbox() {
 			st, err := v.Strongbox()
 			if err != nil {
-				return fmt.Errorf("%s; are you targeting a `safe' installation?", err)
+				return fmt.Errorf("%w; are you targeting a `safe' installation?", err)
 			}
 
 			for addr, state := range st {
 				statuses = append(statuses, status{addr, state == "sealed"})
 			}
 		} else {
-			v.SetURL(cfg.URL())
+			if err := v.SetURL(cfg.URL()); err != nil {
+				return err
+			}
 			isSealed, err := v.Sealed()
 			if err != nil {
 				return err
@@ -244,7 +245,7 @@ listener "tcp" {
 			}
 
 			if time.Since(startupCheckBeginTime) > maxStartupWait {
-				die(fmt.Errorf("Timed out waiting for Vault to begin listening: %s", err))
+				die(fmt.Errorf("Timed out waiting for Vault to begin listening: %w", err))
 			}
 
 			time.Sleep(betweenChecksWait)
@@ -254,16 +255,16 @@ listener "tcp" {
 		if len(keys) == 0 {
 			keys, _, err = v.Init(1, 1)
 			if err != nil {
-				die(fmt.Errorf("Unable to initialize the new (temporary) Vault: %s", err))
+				die(fmt.Errorf("Unable to initialize the new (temporary) Vault: %w", err))
 			}
 		}
 
 		if err = v.Unseal(keys); err != nil {
-			die(fmt.Errorf("Unable to unseal the new (temporary) Vault: %s", err))
+			die(fmt.Errorf("Unable to unseal the new (temporary) Vault: %w", err))
 		}
 		token, err = v.NewRootToken(keys)
 		if err != nil {
-			die(fmt.Errorf("Unable to generate a new root token: %s", err))
+			die(fmt.Errorf("Unable to generate a new root token: %w", err))
 		}
 
 		cfg.SetToken(token)
@@ -273,13 +274,13 @@ listener "tcp" {
 
 		exists, err := v.MountExists("secret")
 		if err != nil {
-			return fmt.Errorf("Could not list mounts: %s", err)
+			return fmt.Errorf("Could not list mounts: %w", err)
 		}
 
 		if !exists {
 			err := v.AddMount("secret", 2)
 			if err != nil {
-				return fmt.Errorf("Could not add `secret' mount: %s", err)
+				return fmt.Errorf("Could not add `secret' mount: %w", err)
 			}
 			fmt.Printf("safe has mounted the @C{secret} backend\n\n")
 		}
@@ -468,7 +469,10 @@ Vault will remain sealed).
 			}
 
 			for _, addr := range addrs {
-				v.SetURL(addr)
+				if err := v.SetURL(addr); err != nil {
+					fmt.Fprintf(os.Stderr, "!!! unable to set URL for vault (at %s): %s\n", addr, err)
+					continue
+				}
 				if err := v.Unseal(keys); err != nil {
 					fmt.Fprintf(os.Stderr, "!!! unable to unseal newly-initialized vault (at %s): %s\n", addr, err)
 				}
@@ -483,7 +487,9 @@ Vault will remain sealed).
 		waitMaster:
 			for currentAttempt < maxAttempts {
 				for _, addr := range addrs {
-					v.SetURL(addr)
+					if err := v.SetURL(addr); err != nil {
+						continue
+					}
 					if err := v.Client().Client.Health(false); err == nil {
 						break waitMaster
 					}
@@ -495,13 +501,13 @@ Vault will remain sealed).
 			if !opt.Init.NoMount {
 				exists, err := v.MountExists("secret")
 				if err != nil {
-					return fmt.Errorf("Could not list mounts: %s", err)
+					return fmt.Errorf("Could not list mounts: %w", err)
 				}
 
 				if !exists {
 					err := v.AddMount("secret", 2)
 					if err != nil {
-						return fmt.Errorf("Could not add `secret' mount: %s", err)
+						return fmt.Errorf("Could not add `secret' mount: %w", err)
 					}
 
 					if !opt.Init.JSON {
@@ -555,7 +561,7 @@ Vault will remain sealed).
 		if cfg.HasStrongbox() {
 			st, err := v.Strongbox()
 			if err != nil {
-				return fmt.Errorf("%s; are you targeting a `safe' installation?", err)
+				return fmt.Errorf("%w; are you targeting a `safe' installation?", err)
 			}
 
 			for addr, state := range st {
@@ -564,7 +570,9 @@ Vault will remain sealed).
 				}
 			}
 		} else {
-			v.SetURL(cfg.URL())
+			if err := v.SetURL(cfg.URL()); err != nil {
+				return err
+			}
 			isSealed, err := v.Sealed()
 			if err != nil {
 				return err
@@ -580,7 +588,9 @@ Vault will remain sealed).
 			return nil
 		}
 
-		v.SetURL(addrs[0])
+		if err := v.SetURL(addrs[0]); err != nil {
+			return err
+		}
 		nkeys, err := v.SealKeys()
 		if err != nil {
 			return err
@@ -595,7 +605,9 @@ Vault will remain sealed).
 
 		for _, addr := range addrs {
 			fmt.Printf("unsealing @G{%s}...\n", addr)
-			v.SetURL(addr)
+			if err := v.SetURL(addr); err != nil {
+				return err
+			}
 			err = v.Unseal(keys)
 			if err != nil {
 				return err
@@ -617,7 +629,7 @@ Vault will remain sealed).
 		if cfg.HasStrongbox() {
 			st, err := v.Strongbox()
 			if err != nil {
-				return fmt.Errorf("%s; are you targeting a `safe' installation?", err)
+				return fmt.Errorf("%w; are you targeting a `safe' installation?", err)
 			}
 
 			for addr, state := range st {
@@ -626,7 +638,9 @@ Vault will remain sealed).
 				}
 			}
 		} else {
-			v.SetURL(cfg.URL())
+			if err := v.SetURL(cfg.URL()); err != nil {
+				return err
+			}
 			isSealed, err := v.Sealed()
 			if err != nil {
 				return nil
@@ -646,7 +660,9 @@ Vault will remain sealed).
 
 		for len(toSeal) > 0 {
 			for i, addr := range toSeal {
-				v.SetURL(addr)
+				if err := v.SetURL(addr); err != nil {
+					continue
+				}
 				err := v.Client().Client.Health(false)
 				if err != nil {
 					if vaultkv.IsErrStandby(err) {
@@ -718,7 +734,7 @@ secret/vault/seal/keys, as key1, key2, ... keyN.
 			for _, email := range opt.Rekey.GPG {
 				output, err := exec.Command("gpg", "--export", email).Output()
 				if err != nil {
-					return fmt.Errorf("Failed to retrieve GPG key for %s from local keyring: %s", email, err.Error())
+					return fmt.Errorf("Failed to retrieve GPG key for %s from local keyring: %w", email, err)
 				}
 
 				// gpg --export returns 0, with no stdout if the key wasn't found, so handle that

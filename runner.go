@@ -10,6 +10,20 @@ import (
 	"github.com/jhunt/go-ansi"
 )
 
+// UsageError is a sentinel error type for usage/argument errors.
+// It allows callers to detect usage errors via errors.As rather than
+// comparing error strings.
+type UsageError struct {
+	msg string
+}
+
+func (e *UsageError) Error() string { return e.msg }
+
+// NewUsageError creates a new UsageError with a formatted message.
+func NewUsageError(format string, args ...interface{}) *UsageError {
+	return &UsageError{msg: fmt.Sprintf(format, args...)}
+}
+
 const (
 	DestructiveCommand    string = "@R"
 	NonDestructiveCommand        = "@G"

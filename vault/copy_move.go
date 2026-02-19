@@ -204,7 +204,7 @@ func (v *Vault) Move(oldpath, newpath string, opts MoveCopyOpts) error {
 
 	err := v.canSemanticallyDelete(oldpath)
 	if err != nil {
-		return fmt.Errorf("Can't move `%s': %s. Did you mean cp?", oldpath, err)
+		return fmt.Errorf("Can't move `%s': %w. Did you mean cp?", oldpath, err)
 	}
 	if err != nil {
 		return err

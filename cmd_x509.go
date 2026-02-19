@@ -170,12 +170,12 @@ The following options are recognized:
 			}
 
 			if err = cert.Validate(); err != nil {
-				return fmt.Errorf("%s failed validation: %s", path, err)
+				return fmt.Errorf("%s failed validation: %w", path, err)
 			}
 
 			if opt.X509.Validate.Bits != nil {
 				if err = cert.CheckStrength(opt.X509.Validate.Bits...); err != nil {
-					return fmt.Errorf("%s failed strength requirement: %s", path, err)
+					return fmt.Errorf("%s failed strength requirement: %w", path, err)
 				}
 			}
 

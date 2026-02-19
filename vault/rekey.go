@@ -30,7 +30,7 @@ func (v *Vault) cancelRekey() {
 func (v *Vault) ReKey(unsealKeyCount, numToUnseal int, pgpKeys []string) ([]string, error) {
 	err := v.client.Client.RekeyCancel()
 	if err != nil {
-		return nil, fmt.Errorf("An error occurred when trying to cancel potentially preexisting rekey: %s", err)
+		return nil, fmt.Errorf("An error occurred when trying to cancel potentially preexisting rekey: %w", err)
 	}
 
 	backup := len(pgpKeys) > 0
@@ -41,7 +41,7 @@ func (v *Vault) ReKey(unsealKeyCount, numToUnseal int, pgpKeys []string) ([]stri
 		Backup:    backup,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("An error occurred when starting a new rekey operation: %s", err)
+		return nil, fmt.Errorf("An error occurred when starting a new rekey operation: %w", err)
 	}
 
 	// we successfully started a rekey, we should now cancel on failure, unless we finish rekeying
@@ -76,7 +76,7 @@ func (v *Vault) ReKey(unsealKeyCount, numToUnseal int, pgpKeys []string) ([]stri
 
 	rekeyDone, err := rekey.Submit(givenKeys...)
 	if err != nil {
-		return nil, fmt.Errorf("Key submission failed: %s", err)
+		return nil, fmt.Errorf("Key submission failed: %w", err)
 	}
 	if !rekeyDone {
 		return nil, fmt.Errorf("The rekey did not finish (is somebody else trying to rekey at the same time?)")

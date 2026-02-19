@@ -1,9 +1,7 @@
 package rc
 
 import (
-	
 	"os"
-	"os/signal"
 	"runtime"
 	"strings"
 	"sync"
@@ -12,8 +10,31 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-var toCleanup []string
-var cleanupLock sync.Mutex
+// CleanupManager manages temporary files that need to be cleaned up.
+// It is safe for concurrent use.
+type CleanupManager struct {
+	mu    sync.Mutex
+	files []string
+}
+
+// Add registers a file path to be cleaned up.
+func (cm *CleanupManager) Add(path string) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.files = append(cm.files, path)
+}
+
+// Cleanup removes all registered temporary files.
+func (cm *CleanupManager) Cleanup() {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	for _, f := range cm.files {
+		_ = os.Remove(f)
+	}
+	cm.files = nil
+}
+
+var defaultCleanupManager = &CleanupManager{}
 
 type Config struct {
 	Version int               `yaml:"version"`
@@ -155,7 +176,9 @@ func (c *Config) Write() error {
 		return err
 	}
 	if c.Options.ManageVaultToken {
-		os.WriteFile(fmt.Sprintf("%s/.vault-token", userHomeDir()), []byte(v.Token), 0600)
+		if err := os.WriteFile(fmt.Sprintf("%s/.vault-token", userHomeDir()), []byte(v.Token), 0600); err != nil {
+			return err
+		}
 	}
 
 	return os.WriteFile(svtoken(), b, 0600)
@@ -163,30 +186,19 @@ func (c *Config) Write() error {
 
 //Returns the path of the file that the certificates were written into
 func writeTempCACerts(certs []string) (string, error) {
-	cleanupLock.Lock()
-	defer cleanupLock.Unlock()
-
 	caFile, err := os.CreateTemp("", "safe-ca-cert")
 	if err != nil {
-		return "", fmt.Errorf("Could not write CAs to a temp file: %s", err.Error())
+		return "", fmt.Errorf("Could not write CAs to a temp file: %w", err)
 	}
 	defer caFile.Close()
 
 	toWrite := strings.Join(certs, "\n")
 	_, err = caFile.WriteString(toWrite)
 	if err != nil {
-		return "", fmt.Errorf("Could not write CA certs into temporary file: %s", err.Error())
+		return "", fmt.Errorf("Could not write CA certs into temporary file: %w", err)
 	}
 
-	toCleanup = append(toCleanup, caFile.Name())
-
-	go func() {
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, os.Interrupt)
-		<-sigChan
-		Cleanup()
-		os.Exit(1)
-	}()
+	defaultCleanupManager.Add(caFile.Name())
 
 	return caFile.Name(), nil
 }
@@ -348,14 +360,8 @@ func (c *Config) Vault(which string) (*Vault, error) {
 	return v, nil
 }
 
-//Cleanup will clean up any temporary files that the rc package may have made.
+// Cleanup will clean up any temporary files that the rc package may have made.
 // Cleanup is thread-safe and can be called multiple times.
 func Cleanup() {
-	cleanupLock.Lock()
-	for _, filename := range toCleanup {
-		_ = os.Remove(filename)
-	}
-
-	toCleanup = nil
-	cleanupLock.Unlock()
+	defaultCleanupManager.Cleanup()
 }

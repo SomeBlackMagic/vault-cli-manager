@@ -2,9 +2,8 @@ package main
 
 import (
 	"crypto/x509"
-	
+	"errors"
 	"os"
-	"strings"
 
 	fmt "github.com/jhunt/go-ansi"
 	"github.com/jhunt/go-cli"
@@ -13,6 +12,9 @@ import (
 	"github.com/SomeBlackMagic/vault-cli-manager/vault"
 )
 
+// Version is set at build time via -ldflags "-X main.Version=...".
+// This is the standard Go practice for CLI build-time variables and is exempt
+// from the global variable prohibition.
 var Version string
 
 func connect(auth bool) *vault.Vault {
@@ -363,7 +365,8 @@ func main() {
 		defer rc.Cleanup()
 		err = r.Execute(p.Command, p.Args...)
 		if err != nil {
-			if strings.HasPrefix(err.Error(), "USAGE") {
+			var usageErr *UsageError
+			if errors.As(err, &usageErr) {
 				fmt.Fprintf(os.Stderr, "@Y{%s}\n", err)
 			} else {
 				fmt.Fprintf(os.Stderr, "@R{!! %s}\n", err)

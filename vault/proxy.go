@@ -81,7 +81,7 @@ func NewProxyRouter() (*ProxyRouter, error) {
 func openSOCKS5Helper(toOpen, knownHostsFile string, skipHostKeyValidation bool) (string, error) {
 	u, err := url.Parse(toOpen)
 	if err != nil {
-		return "", fmt.Errorf("Could not parse proxy URL (%s): %s", toOpen, err)
+		return "", fmt.Errorf("Could not parse proxy URL (%s): %w", toOpen, err)
 	}
 
 	if u.User == nil {
@@ -108,7 +108,7 @@ func openSOCKS5Helper(toOpen, knownHostsFile string, skipHostKeyValidation bool)
 
 	privateKeyContents, err := os.ReadFile(privateKeyPath[0])
 	if err != nil {
-		return "", fmt.Errorf("Could not read private key file (%s): %s", privateKeyPath[0], err)
+		return "", fmt.Errorf("Could not read private key file (%s): %w", privateKeyPath[0], err)
 	}
 
 	sshClient, err := StartSSHTunnel(SOCKS5SSHConfig{
@@ -119,12 +119,12 @@ func openSOCKS5Helper(toOpen, knownHostsFile string, skipHostKeyValidation bool)
 		SkipHostKeyValidation: skipHostKeyValidation,
 	})
 	if err != nil {
-		return "", fmt.Errorf("Could not start SSH tunnel: %s", err)
+		return "", fmt.Errorf("Could not start SSH tunnel: %w", err)
 	}
 
 	socks5Addr, err := StartSOCKS5Server(sshClient.Dial)
 	if err != nil {
-		return "", fmt.Errorf("Could not start SOCKS5 Server: %s", err)
+		return "", fmt.Errorf("Could not start SOCKS5 Server: %w", err)
 	}
 
 	return fmt.Sprintf("socks5://%s", socks5Addr), nil
@@ -167,13 +167,13 @@ func StartSSHTunnel(conf SOCKS5SSHConfig) (*ssh.Client, error) {
 
 		hostKeyCallback, err = knownHostsPromptCallback(conf.KnownHostsFile)
 		if err != nil {
-			return nil, fmt.Errorf("Error opening known_hosts file at `%s': %s", conf.KnownHostsFile, err)
+			return nil, fmt.Errorf("Error opening known_hosts file at `%s': %w", conf.KnownHostsFile, err)
 		}
 	}
 
 	privateKeySigner, err := ssh.ParsePrivateKey(conf.PrivateKey)
 	if err != nil {
-		return nil, fmt.Errorf("Could not create signer for private key: %s", err)
+		return nil, fmt.Errorf("Could not create signer for private key: %w", err)
 	}
 
 	sshConfig := &ssh.ClientConfig{
@@ -194,12 +194,12 @@ func StartSOCKS5Server(dialFn func(string, string) (net.Conn, error)) (string, e
 		Dial: noopDialContext(dialFn),
 	})
 	if err != nil {
-		return "", fmt.Errorf("Error starting local SOCKS5 server: %s", err)
+		return "", fmt.Errorf("Error starting local SOCKS5 server: %w", err)
 	}
 
 	socks5Listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		return "", fmt.Errorf("Error starting local SOCKS5 server: %s", err)
+		return "", fmt.Errorf("Error starting local SOCKS5 server: %w", err)
 	}
 
 	go func() {
@@ -215,7 +215,7 @@ func StartSOCKS5Server(dialFn func(string, string) (net.Conn, error)) (string, e
 func knownHostsPromptCallback(knownHostsFile string) (ssh.HostKeyCallback, error) {
 	tmpCallback, err := knownhosts.New(knownHostsFile)
 	if err != nil {
-		return nil, fmt.Errorf("Could not handle known hosts file: %s", err)
+		return nil, fmt.Errorf("Could not handle known hosts file: %w", err)
 	}
 
 	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
@@ -265,7 +265,7 @@ Host key verification failed.
 		//Let's see if we can ask the user if they want to add it
 		if !isatty.IsTerminal(os.Stderr.Fd()) || !promptAddNewKnownHost(hostname, remote, key) {
 			//If its not a terminal or the user declined, we're rejecting it
-			return fmt.Errorf("Host key verification failed: %s", err)
+			return fmt.Errorf("Host key verification failed: %w", err)
 		}
 
 		err = writeKnownHosts(knownHostsFile, hostname, key)
@@ -297,32 +297,32 @@ func writeKnownHosts(knownHostsFile, hostname string, key ssh.PublicKey) error {
 	normalizedHostname := knownhosts.Normalize(hostname)
 	f, err := os.OpenFile(knownHostsFile, os.O_APPEND|os.O_RDWR, 0600)
 	if err != nil {
-		return fmt.Errorf("Could not open `%s' for reading: %s", knownHostsFile, err)
+		return fmt.Errorf("Could not open `%s' for reading: %w", knownHostsFile, err)
 	}
 
 	fileInfo, err := f.Stat()
 	if err != nil {
-		return fmt.Errorf("Could not retrieve info for file `%s': %s", knownHostsFile, err)
+		return fmt.Errorf("Could not retrieve info for file `%s': %w", knownHostsFile, err)
 	}
 
 	if fileInfo.Size() != 0 {
 		//Let's make sure we're writing to a new line...
 		_, err := f.Seek(-1, 2)
 		if err != nil {
-			return fmt.Errorf("Error when seeking to end of `%s': %s", knownHostsFile, err)
+			return fmt.Errorf("Error when seeking to end of `%s': %w", knownHostsFile, err)
 		}
 
 		lastByte := make([]byte, 1)
 		_, err = f.Read(lastByte)
 		if err != nil {
-			return fmt.Errorf("Error when reading from `%s': %s", knownHostsFile, err)
+			return fmt.Errorf("Error when reading from `%s': %w", knownHostsFile, err)
 		}
 
 		if !bytes.Equal(lastByte, []byte("\n")) {
 			//Need to append a newline
 			_, err = f.Write([]byte("\n"))
 			if err != nil {
-				return fmt.Errorf("Error when writing to `%s': %s", knownHostsFile, err)
+				return fmt.Errorf("Error when writing to `%s': %w", knownHostsFile, err)
 			}
 		}
 	}
@@ -330,7 +330,7 @@ func writeKnownHosts(knownHostsFile, hostname string, key ssh.PublicKey) error {
 	newKnownHostsLine := knownhosts.Line([]string{normalizedHostname}, key)
 	_, err = f.WriteString(newKnownHostsLine + "\n")
 	if err != nil {
-		return fmt.Errorf("Error when writing to `%s': %s", knownHostsFile, err)
+		return fmt.Errorf("Error when writing to `%s': %w", knownHostsFile, err)
 	}
 
 	fmt.Fprintf(os.Stderr, "Warning: Permanently added '%s' (%s) to the list of known hosts.\n", hostname, key.Type())

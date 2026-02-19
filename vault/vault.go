@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	
 	"net/http"
 	"net/url"
 	"os"
@@ -40,12 +39,12 @@ func NewVault(conf VaultConfig) (*Vault, error) {
 		// https://golang.org/src/crypto/x509/verify.go (Line 741)
 		conf.CACerts, err = x509.SystemCertPool()
 		if err != nil && runtime.GOOS != "windows" {
-			return nil, fmt.Errorf("unable to retrieve system root certificate authorities: %s", err)
+			return nil, fmt.Errorf("unable to retrieve system root certificate authorities: %w", err)
 		}
 	}
 	vaultURL, err := url.Parse(strings.TrimSuffix(conf.URL, "/"))
 	if err != nil {
-		return nil, fmt.Errorf("could not parse Vault URL: %s", err)
+		return nil, fmt.Errorf("could not parse Vault URL: %w", err)
 	}
 
 	//The default port for Vault is typically 8200 (which is the VaultKV default),
@@ -61,7 +60,7 @@ func NewVault(conf VaultConfig) (*Vault, error) {
 
 	proxyRouter, err := NewProxyRouter()
 	if err != nil {
-		return nil, fmt.Errorf("Error setting up proxy: %s", err)
+		return nil, fmt.Errorf("Error setting up proxy: %w", err)
 	}
 
 	return &Vault{
@@ -118,12 +117,12 @@ func (v *Vault) Curl(method string, path string, body []byte) (*http.Response, e
 	path = Canonicalize(path)
 	u, err := url.Parse(path)
 	if err != nil {
-		return nil, fmt.Errorf("Could not parse input path: %s", err.Error())
+		return nil, fmt.Errorf("Could not parse input path: %w", err)
 	}
 
 	query, err := url.ParseQuery(u.RawQuery)
 	if err != nil {
-		panic("Could not parse query: " + err.Error())
+		return nil, fmt.Errorf("could not parse query: %w", err)
 	}
 
 	return v.client.Client.Curl(method, u.Path, query, bytes.NewBuffer(body))
@@ -281,10 +280,10 @@ func DecodeErrorResponse(body []byte) error {
 	}
 }
 
-func (v *Vault) SetURL(u string) {
+func (v *Vault) SetURL(u string) error {
 	vaultURL, err := url.Parse(strings.TrimSuffix(u, "/"))
 	if err != nil {
-		panic(fmt.Sprintf("Could not parse Vault URL: %s", err))
+		return fmt.Errorf("could not parse Vault URL: %w", err)
 	}
 
 	//The default port for Vault is typically 8200 (which is the VaultKV default),
@@ -298,4 +297,5 @@ func (v *Vault) SetURL(u string) {
 		vaultURL.Host = vaultURL.Host + port
 	}
 	v.client.Client.VaultURL = vaultURL
+	return nil
 }

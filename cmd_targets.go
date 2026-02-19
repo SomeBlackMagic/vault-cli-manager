@@ -248,7 +248,7 @@ provided multiple times to provide multiple CA certificates.
 				if p == nil {
 					pemData, err := os.ReadFile(input)
 					if err != nil {
-						return fmt.Errorf("%s: While reading from file `%s': %s", errorPrefix, input, err.Error())
+						return fmt.Errorf("%s: While reading from file `%s': %w", errorPrefix, input, err)
 					}
 
 					p, _ = pem.Decode([]byte(pemData))
@@ -259,7 +259,7 @@ provided multiple times to provide multiple CA certificates.
 
 				_, err := x509.ParseCertificate(p.Bytes)
 				if err != nil {
-					return fmt.Errorf("%s: While parsing certificate ASN.1 DER data: %s", errorPrefix, err.Error())
+					return fmt.Errorf("%s: While parsing certificate ASN.1 DER data: %w", errorPrefix, err)
 				}
 
 				toWrite := pem.EncodeToMemory(p)

@@ -47,7 +47,7 @@ func (s Secret) X509(requireKey bool) (*X509, error) {
 
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		return nil, fmt.Errorf("not a valid certificate (%s)", err)
+		return nil, fmt.Errorf("not a valid certificate (%w)", err)
 	}
 
 	var (
@@ -74,7 +74,7 @@ func (s Secret) X509(requireKey bool) (*X509, error) {
 
 		c, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
-			return nil, fmt.Errorf("intermediary #%d: not a valid certificate (%s)", n, err)
+			return nil, fmt.Errorf("intermediary #%d: not a valid certificate (%w)", n, err)
 		}
 
 		intermediaries = append(intermediaries, c)
@@ -98,7 +98,7 @@ func (s Secret) X509(requireKey bool) (*X509, error) {
 		if err != nil {
 			pkcs8TmpKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 			if err != nil {
-				return nil, fmt.Errorf("not a valid private key (%s)", err)
+				return nil, fmt.Errorf("not a valid private key (%w)", err)
 			}
 			var isRSAEncoded bool
 			key, isRSAEncoded = pkcs8TmpKey.(*rsa.PrivateKey)
@@ -129,7 +129,7 @@ func (s Secret) X509(requireKey bool) (*X509, error) {
 		v := s.Get("crl")
 		crl, err := x509.ParseRevocationList([]byte(v))
 		if err != nil {
-			return nil, fmt.Errorf("not a valid CA certificate (CRL parsing failed: %s)", err)
+			return nil, fmt.Errorf("not a valid CA certificate (CRL parsing failed: %w)", err)
 		}
 		o.CRL = crl
 	}

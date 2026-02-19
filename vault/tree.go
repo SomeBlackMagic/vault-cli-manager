@@ -10,6 +10,7 @@ import (
 	"github.com/cloudfoundry-community/vaultkv"
 	"github.com/jhunt/go-ansi"
 	"github.com/starkandwayne/goutils/tree"
+	"golang.org/x/sync/errgroup"
 )
 
 // This is a synchronized queue that specifically works with our tree algorithm,
@@ -317,7 +318,6 @@ func (v *Vault) constructTree(path string, opts TreeOpts) (*secretTree, error) {
 	}
 
 	queue := newWorkQueue(numWorkers)
-	errChan := make(chan error)
 
 	path = Canonicalize(path)
 	if path == "" {
@@ -332,40 +332,29 @@ func (v *Vault) constructTree(path string, opts TreeOpts) (*secretTree, error) {
 		return nil, fmt.Errorf("`%s' is not a secret", path)
 	}
 	operation := ret.getWorkType(opts)
-	if err != nil {
-		return nil, err
-	}
 	queue.Push(&workOrder{
 		insertInto: ret,
 		operation:  operation,
 	})
 
+	g := new(errgroup.Group)
 	for i := 0; i < numWorkers; i++ {
 		worker := treeWorker{
 			vault:  v,
 			orders: queue,
-			errors: errChan,
 			opts:   opts,
 		}
-		go worker.work()
+		g.Go(worker.work)
 	}
 
-	//Workers return on errChan when they finish. They'll throw back nil if no
-	// errors were encountered
-	for i := 0; i < numWorkers; i++ {
-		thisErr := <-errChan
-		if thisErr != nil {
-			err = thisErr
-		}
-	}
-	if err != nil {
+	if err := g.Wait(); err != nil {
 		return nil, err
 	}
 
 	//Make the output deterministic
 	ret.sort()
 
-	return ret, err
+	return ret, nil
 }
 
 // Only use this for the base for the initial node of the tree. You can infer
@@ -485,7 +474,7 @@ func (s SecretEntry) Copy(v *Vault, dst string, opts TreeCopyOpts) error {
 	if opts.Clear {
 		err := v.Client().DestroyAll(dst)
 		if err != nil {
-			return fmt.Errorf("Could not wipe existing secret at path `%s': %s", dst, err)
+			return fmt.Errorf("Could not wipe existing secret at path `%s': %w", dst, err)
 		}
 	}
 
@@ -495,7 +484,7 @@ func (s SecretEntry) Copy(v *Vault, dst string, opts TreeCopyOpts) error {
 		for i := uint(1); i < s.Versions[0].Number; i++ {
 			setMeta, err := v.Client().Set(dst, map[string]string{"TO_DESTROY": "TO_DESTROY"}, nil)
 			if err != nil {
-				return fmt.Errorf("Could not write secret to path `%s': %s", dst, err)
+				return fmt.Errorf("Could not write secret to path `%s': %w", dst, err)
 			}
 
 			toDestroy = append(toDestroy, setMeta.Version)
@@ -512,7 +501,7 @@ func (s SecretEntry) Copy(v *Vault, dst string, opts TreeCopyOpts) error {
 
 		setMeta, err := v.Client().Set(dst, toWrite, nil)
 		if err != nil {
-			return fmt.Errorf("Could not write secret to path `%s': %s", dst, err)
+			return fmt.Errorf("Could not write secret to path `%s': %w", dst, err)
 		}
 
 		if version.State == SecretStateDestroyed {
@@ -525,13 +514,13 @@ func (s SecretEntry) Copy(v *Vault, dst string, opts TreeCopyOpts) error {
 	if len(toDestroy) > 0 {
 		err := v.Client().Destroy(dst, toDestroy)
 		if err != nil {
-			return fmt.Errorf("Could not destroy versions %+v at path `%s': %s", toDestroy, dst, err)
+			return fmt.Errorf("Could not destroy versions %+v at path `%s': %w", toDestroy, dst, err)
 		}
 	}
 	if len(toDelete) > 0 {
 		err := v.DeleteVersions(dst, toDelete)
 		if err != nil {
-			return fmt.Errorf("Could not delete versions %+v at path `%s': %s", toDelete, dst, err)
+			return fmt.Errorf("Could not delete versions %+v at path `%s': %w", toDelete, dst, err)
 		}
 	}
 
@@ -686,18 +675,16 @@ func (s Secrets) printableTree(color, secrets bool, index int) *tree.Node {
 type treeWorker struct {
 	vault  *Vault
 	orders *workQueue
-	errors chan error
 	opts   TreeOpts
 }
 
-func (w *treeWorker) work() {
+func (w *treeWorker) work() error {
 	var err error
-	handleError := func() {
+	handleError := func() error {
 		w.orders.Close()
-		w.errors <- err
-		//This will decrement the awake counter and exit
-		//Doesn't actually Pop because we called Close
+		// Drain the queue to unblock other workers waiting on Pop
 		w.orders.Pop()
+		return err
 	}
 
 	order, done := w.orders.Pop()
@@ -728,15 +715,13 @@ func (w *treeWorker) work() {
 			}
 		}
 		if err != nil {
-			handleError()
-			return
+			return handleError()
 		}
 
 		for i := range answer {
 			answer[i].MountVersion, err = w.vault.MountVersion(answer[i].Name)
 			if err != nil {
-				handleError()
-				return
+				return handleError()
 			}
 		}
 
@@ -751,7 +736,7 @@ func (w *treeWorker) work() {
 		order, done = w.orders.Pop()
 	}
 
-	w.errors <- nil
+	return nil
 }
 
 func (w *treeWorker) workList(t secretTree) ([]secretTree, error) {
@@ -821,7 +806,7 @@ func (w *treeWorker) workGet(t secretTree) ([]secretTree, error) {
 	}
 
 	if t.Deleted {
-		w.vault.client.Delete(path, &vaultkv.KVDeleteOpts{Versions: []uint{t.Version}})
+		err = w.vault.client.Delete(path, &vaultkv.KVDeleteOpts{Versions: []uint{t.Version}})
 		if err != nil {
 			return nil, err
 		}

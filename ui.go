@@ -42,7 +42,7 @@ func parseKeyVal(key string, quiet bool) (string, string, bool, error) {
 		if l[1] == "-" {
 			b, err := io.ReadAll(os.Stdin)
 			if err != nil {
-				return l[0], "", true, fmt.Errorf("Failed to read from standard input: %s", err)
+				return l[0], "", true, fmt.Errorf("Failed to read from standard input: %w", err)
 			}
 			if !quiet {
 				ansi.Fprintf(os.Stderr, "%s: <@M{$stdin}\n", l[0])
@@ -52,7 +52,7 @@ func parseKeyVal(key string, quiet bool) (string, string, bool, error) {
 
 		b, err := os.ReadFile(l[1])
 		if err != nil {
-			return l[0], "", true, fmt.Errorf("Failed to read contents of %s: %s", l[1], err)
+			return l[0], "", true, fmt.Errorf("Failed to read contents of %s: %w", l[1], err)
 		}
 		if !quiet {
 			ansi.Fprintf(os.Stderr, "%s: <@C{%s}\n", l[0], l[1])
