@@ -4,7 +4,6 @@ import (
 	"fmt"
 	// not crypto, not significant
 	"math/rand"
-	"time"
 )
 
 var Adjectives []string
@@ -48,10 +47,6 @@ func init() {
 		"dungeon",
 		"gaol",
 	}
-}
-
-func init() {
-	rand.Seed(time.Now().Unix())
 }
 
 func RandomName() string {

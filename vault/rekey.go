@@ -9,14 +9,14 @@ import (
 	"github.com/cloudfoundry-community/vaultkv"
 	"github.com/jhunt/go-ansi"
 	"github.com/starkandwayne/safe/prompt"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
-var termState *terminal.State
+var termState *term.State
 
 func (v *Vault) cancelRekey() {
 	if termState != nil {
-		terminal.Restore(int(os.Stdin.Fd()), termState)
+		term.Restore(int(os.Stdin.Fd()), termState)
 	}
 	err := v.client.Client.RekeyCancel()
 	if err != nil {
@@ -61,8 +61,8 @@ func (v *Vault) ReKey(unsealKeyCount, numToUnseal int, pgpKeys []string) ([]stri
 		}
 	}()
 
-	if terminal.IsTerminal(int(os.Stdin.Fd())) {
-		termState, err = terminal.GetState(int(os.Stdin.Fd()))
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		termState, err = term.GetState(int(os.Stdin.Fd()))
 		if err != nil {
 			return nil, err
 		}

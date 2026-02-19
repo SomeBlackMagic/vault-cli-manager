@@ -1,7 +1,7 @@
 package main
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http/httputil"
 	"os"
 	"os/exec"
@@ -265,7 +265,7 @@ sent as DATA.
 		}
 
 		if opt.Curl.DataOnly {
-			b, err := ioutil.ReadAll(res.Body)
+			b, err := io.ReadAll(res.Body)
 			if err != nil {
 				return err
 			}

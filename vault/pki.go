@@ -3,7 +3,7 @@ package vault
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strings"
 )
 
@@ -32,7 +32,7 @@ func (v *Vault) RetrievePem(backend, path string) ([]byte, error) {
 		return nil, err
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +58,7 @@ func (v *Vault) CreateSignedCertificate(backend, role, path string, params CertO
 		return err
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return err
 	}
@@ -156,7 +156,7 @@ func (v *Vault) RevokeCertificate(backend, serial string) error {
 	}
 
 	if res.StatusCode >= 400 {
-		body, err := ioutil.ReadAll(res.Body)
+		body, err := io.ReadAll(res.Body)
 		if err != nil {
 			return err
 		}

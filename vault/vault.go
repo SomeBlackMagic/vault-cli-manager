@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
+	
 	"net/http"
 	"net/url"
 	"os"
@@ -227,7 +227,7 @@ func (v *Vault) Mount(typ, path string, params map[string]interface{}) error {
 		}
 
 		if res.StatusCode != 204 {
-			body, err := ioutil.ReadAll(res.Body)
+			body, err := io.ReadAll(res.Body)
 			if err != nil {
 				return err
 			}
@@ -246,7 +246,7 @@ func (v *Vault) Mount(typ, path string, params map[string]interface{}) error {
 		}
 
 		if res.StatusCode != 204 {
-			body, err := ioutil.ReadAll(res.Body)
+			body, err := io.ReadAll(res.Body)
 			if err != nil {
 				return err
 			}
@@ -272,7 +272,7 @@ func DecodeErrorResponse(body []byte) error {
 					errors = append(errors, err)
 				}
 			}
-			return fmt.Errorf(strings.Join(errors, "\n"))
+			return fmt.Errorf("%s", strings.Join(errors, "\n"))
 		} else {
 			return fmt.Errorf("Received unexpected format of Vault error messages:\n%v\n", errors)
 		}

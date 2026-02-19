@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"os"
 	"sort"
 	"strconv"
@@ -380,7 +380,7 @@ rting garbage data and then destroying it (which is originally done to preserve 
 -s (--shallow) will write only the latest version for each secret.
 `}, func(command string, args ...string) error {
 		rc.Apply(opt.UseTarget)
-		b, err := ioutil.ReadAll(os.Stdin)
+		b, err := io.ReadAll(os.Stdin)
 		if err != nil {
 			return err
 		}

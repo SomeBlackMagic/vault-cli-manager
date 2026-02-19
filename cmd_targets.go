@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"crypto/x509"
-	"io/ioutil"
+	
 	"net/url"
 	"os"
 	"sort"
@@ -246,7 +246,7 @@ provided multiple times to provide multiple CA certificates.
 				// If not a PEM block, try to interpret it as a filepath pointing to
 				// a file that contains a PEM block.
 				if p == nil {
-					pemData, err := ioutil.ReadFile(input)
+					pemData, err := os.ReadFile(input)
 					if err != nil {
 						return fmt.Errorf("%s: While reading from file `%s': %s", errorPrefix, input, err.Error())
 					}

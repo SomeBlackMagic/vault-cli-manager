@@ -2,7 +2,7 @@ package main
 
 import (
 	"crypto/x509"
-	"io/ioutil"
+	
 	"os"
 	"strings"
 
@@ -18,7 +18,7 @@ var Version string
 func connect(auth bool) *vault.Vault {
 	var caCertPool *x509.CertPool
 	if os.Getenv("VAULT_CACERT") != "" {
-		contents, err := ioutil.ReadFile(os.Getenv("VAULT_CACERT"))
+		contents, err := os.ReadFile(os.Getenv("VAULT_CACERT"))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "@R{!! Could not read CA certificates: %s}", err.Error())
 		}

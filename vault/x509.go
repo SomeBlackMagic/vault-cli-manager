@@ -22,7 +22,7 @@ type X509 struct {
 	Certificate    *x509.Certificate
 	PrivateKey     *rsa.PrivateKey
 	Serial         *big.Int
-	CRL            *pkix.CertificateList
+	CRL            *x509.RevocationList
 
 	KeyUsage    x509.KeyUsage
 	ExtKeyUsage []x509.ExtKeyUsage
@@ -127,7 +127,7 @@ func (s Secret) X509(requireKey bool) (*X509, error) {
 
 	if s.Has("crl") {
 		v := s.Get("crl")
-		crl, err := x509.ParseCRL([]byte(v))
+		crl, err := x509.ParseRevocationList([]byte(v))
 		if err != nil {
 			return nil, fmt.Errorf("not a valid CA certificate (CRL parsing failed: %s)", err)
 		}
@@ -555,8 +555,8 @@ func (x *X509) MakeCA() {
 	x.Certificate.IsCA = true
 	x.Certificate.MaxPathLen = 1
 	x.Serial = big.NewInt(1)
-	x.CRL = &pkix.CertificateList{}
-	x.CRL.TBSCertList.RevokedCertificates = make([]pkix.RevokedCertificate, 0)
+	x.CRL = &x509.RevocationList{}
+	x.CRL.RevokedCertificateEntries = make([]x509.RevocationListEntry, 0)
 }
 
 func (x X509) Secret(skipIfExists bool) (*Secret, error) {
@@ -595,12 +595,16 @@ func (x X509) Secret(skipIfExists bool) (*Secret, error) {
 		}
 
 		if x.CRL == nil {
-			x.CRL = &pkix.CertificateList{}
+			x.CRL = &x509.RevocationList{}
 		}
-		if x.CRL.TBSCertList.RevokedCertificates == nil {
-			x.CRL.TBSCertList.RevokedCertificates = make([]pkix.RevokedCertificate, 0)
+		if x.CRL.RevokedCertificateEntries == nil {
+			x.CRL.RevokedCertificateEntries = make([]x509.RevocationListEntry, 0)
 		}
-		b, err := x.Certificate.CreateCRL(rand.Reader, x.PrivateKey, x.CRL.TBSCertList.RevokedCertificates, time.Now(), time.Now().Add(10*365*24*time.Hour))
+		b, err := x509.CreateRevocationList(rand.Reader, &x509.RevocationList{
+			RevokedCertificateEntries: x.CRL.RevokedCertificateEntries,
+			ThisUpdate:                time.Now(),
+			NextUpdate:                time.Now().Add(10 * 365 * 24 * time.Hour),
+		}, x.Certificate, x.PrivateKey)
 		if err != nil {
 			return s, err
 		}
@@ -687,14 +691,14 @@ func (ca *X509) Revoke(cert *X509) {
 		return
 	}
 
-	ca.CRL.TBSCertList.RevokedCertificates = append(ca.CRL.TBSCertList.RevokedCertificates, pkix.RevokedCertificate{
+	ca.CRL.RevokedCertificateEntries = append(ca.CRL.RevokedCertificateEntries, x509.RevocationListEntry{
 		SerialNumber:   cert.Certificate.SerialNumber,
 		RevocationTime: time.Now(),
 	})
 }
 
 func (ca *X509) HasRevoked(cert *X509) bool {
-	for _, rvk := range ca.CRL.TBSCertList.RevokedCertificates {
+	for _, rvk := range ca.CRL.RevokedCertificateEntries {
 		if rvk.SerialNumber.Cmp(cert.Certificate.SerialNumber) == 0 {
 			return true
 		}

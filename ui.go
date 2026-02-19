@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -40,7 +40,7 @@ func parseKeyVal(key string, quiet bool) (string, string, bool, error) {
 		}
 
 		if l[1] == "-" {
-			b, err := ioutil.ReadAll(os.Stdin)
+			b, err := io.ReadAll(os.Stdin)
 			if err != nil {
 				return l[0], "", true, fmt.Errorf("Failed to read from standard input: %s", err)
 			}
@@ -50,7 +50,7 @@ func parseKeyVal(key string, quiet bool) (string, string, bool, error) {
 			return l[0], string(b), false, nil
 		}
 
-		b, err := ioutil.ReadFile(l[1])
+		b, err := os.ReadFile(l[1])
 		if err != nil {
 			return l[0], "", true, fmt.Errorf("Failed to read contents of %s: %s", l[1], err)
 		}

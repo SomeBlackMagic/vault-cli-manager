@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
-	"io/ioutil"
+	
 	"net"
 	"os"
 	"os/exec"
@@ -132,7 +132,7 @@ subsequent activations of the Vault.
 			}
 		}
 
-		f, err := ioutil.TempFile("", "kazoo")
+		f, err := os.CreateTemp("", "kazoo")
 		if err != nil {
 			return err
 		}

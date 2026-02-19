@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	
 	"net"
 	"net/http"
 	"net/url"
@@ -106,7 +106,7 @@ func openSOCKS5Helper(toOpen, knownHostsFile string, skipHostKeyValidation bool)
 		return "", fmt.Errorf("More than one private key provided")
 	}
 
-	privateKeyContents, err := ioutil.ReadFile(privateKeyPath[0])
+	privateKeyContents, err := os.ReadFile(privateKeyPath[0])
 	if err != nil {
 		return "", fmt.Errorf("Could not read private key file (%s): %s", privateKeyPath[0], err)
 	}

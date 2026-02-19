@@ -8,12 +8,15 @@ build:
 	go build $(GO_LDFLAGS) .
 	./safe -v
 
-test: build
+unit-test:
+	go test ./...
+
+test: build unit-test
 	./tests
 
 release: build
 	mkdir -p $(RELEASE_ROOT)
-	@go get github.com/mitchellh/gox
+	@go install github.com/mitchellh/gox@latest
 	gox -osarch="$(TARGETS)" --output="$(RELEASE_ROOT)/artifacts/safe-{{.OS}}-{{.Arch}}" $(GO_LDFLAGS)
 
 install: build
