@@ -7,7 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/starkandwayne/safe/rc"
+	"github.com/SomeBlackMagic/vault-cli-manager/rc"
 )
 
 var _ = Describe("Config", func() {

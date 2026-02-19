@@ -9,8 +9,8 @@ import (
 	fmt "github.com/jhunt/go-ansi"
 	"github.com/jhunt/go-cli"
 	env "github.com/jhunt/go-envirotron"
-	"github.com/starkandwayne/safe/rc"
-	"github.com/starkandwayne/safe/vault"
+	"github.com/SomeBlackMagic/vault-cli-manager/rc"
+	"github.com/SomeBlackMagic/vault-cli-manager/vault"
 )
 
 var Version string

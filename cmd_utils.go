@@ -9,8 +9,8 @@ import (
 
 	"github.com/jhunt/go-ansi"
 	fmt "github.com/jhunt/go-ansi"
-	"github.com/starkandwayne/safe/rc"
-	"github.com/starkandwayne/safe/vault"
+	"github.com/SomeBlackMagic/vault-cli-manager/rc"
+	"github.com/SomeBlackMagic/vault-cli-manager/vault"
 )
 
 func registerUtilsCommands(r *Runner, opt *Options) {

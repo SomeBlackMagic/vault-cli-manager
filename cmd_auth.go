@@ -6,8 +6,8 @@ import (
 
 	"github.com/cloudfoundry-community/vaultkv"
 	fmt "github.com/jhunt/go-ansi"
-	"github.com/starkandwayne/safe/prompt"
-	"github.com/starkandwayne/safe/rc"
+	"github.com/SomeBlackMagic/vault-cli-manager/prompt"
+	"github.com/SomeBlackMagic/vault-cli-manager/rc"
 )
 
 func registerAuthCommands(r *Runner, opt *Options) {

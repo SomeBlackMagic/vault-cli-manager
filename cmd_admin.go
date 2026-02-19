@@ -16,8 +16,8 @@ import (
 
 	"github.com/cloudfoundry-community/vaultkv"
 	fmt "github.com/jhunt/go-ansi"
-	"github.com/starkandwayne/safe/rc"
-	"github.com/starkandwayne/safe/vault"
+	"github.com/SomeBlackMagic/vault-cli-manager/rc"
+	"github.com/SomeBlackMagic/vault-cli-manager/vault"
 )
 
 func registerAdminCommands(r *Runner, opt *Options) {

@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	fmt "github.com/jhunt/go-ansi"
-	"github.com/starkandwayne/safe/prompt"
-	"github.com/starkandwayne/safe/rc"
-	"github.com/starkandwayne/safe/vault"
+	"github.com/SomeBlackMagic/vault-cli-manager/prompt"
+	"github.com/SomeBlackMagic/vault-cli-manager/rc"
+	"github.com/SomeBlackMagic/vault-cli-manager/vault"
 )
 
 // For versions of safe 0.10+

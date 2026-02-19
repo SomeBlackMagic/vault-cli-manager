@@ -10,8 +10,8 @@ import (
 	"time"
 
 	fmt "github.com/jhunt/go-ansi"
-	"github.com/starkandwayne/safe/rc"
-	"github.com/starkandwayne/safe/vault"
+	"github.com/SomeBlackMagic/vault-cli-manager/rc"
+	"github.com/SomeBlackMagic/vault-cli-manager/vault"
 )
 
 func registerX509Commands(r *Runner, opt *Options) {

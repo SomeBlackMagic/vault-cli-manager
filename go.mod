@@ -1,4 +1,4 @@
-module github.com/starkandwayne/safe
+module github.com/SomeBlackMagic/vault-cli-manager
 
 go 1.24.0
 
