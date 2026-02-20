@@ -1,26 +1,27 @@
-package main
+package cmd
 
 import (
 	"encoding/json"
 	"encoding/pem"
 	"crypto/x509"
-	
+
 	"net/url"
 	"os"
 	"sort"
 	"strings"
 
+	"github.com/SomeBlackMagic/vault-cli-manager/app"
 	fmt "github.com/jhunt/go-ansi"
 	"github.com/SomeBlackMagic/vault-cli-manager/prompt"
 	"github.com/SomeBlackMagic/vault-cli-manager/rc"
 	"github.com/SomeBlackMagic/vault-cli-manager/vault"
 )
 
-func registerTargetCommands(r *Runner, opt *Options) {
-	r.Dispatch("targets", &Help{
+func registerTargetCommands(r *app.Runner, opt *Options) {
+	r.Dispatch("targets", &app.Help{
 		Summary: "List all targeted Vaults",
 		Usage:   "safe targets",
-		Type:    AdministrativeCommand,
+		Type:    app.AdministrativeCommand,
 	}, func(command string, args ...string) error {
 		if len(args) != 0 {
 			r.ExitWithUsage("targets")
@@ -94,7 +95,7 @@ func registerTargetCommands(r *Runner, opt *Options) {
 		return nil
 	})
 
-	r.Dispatch("target", &Help{
+	r.Dispatch("target", &app.Help{
 		Summary: "Target a new Vault, or set your current Vault target",
 		Description: `Target a new Vault if URL and ALIAS are provided, or set
 your current Vault target if just ALIAS is given. If the single argument form
@@ -116,7 +117,7 @@ certificate to the certificate served by the Vault server. This flag can be
 provided multiple times to provide multiple CA certificates.
 `,
 		Usage: "safe [-k] [--[no]-strongbox] [-n] [--ca-cert] target [URL] [ALIAS] | safe target -i",
-		Type:  AdministrativeCommand,
+		Type:  app.AdministrativeCommand,
 	}, func(command string, args ...string) error {
 		var cfg rc.Config
 		if !opt.Target.Interactive && len(args) == 0 {
@@ -286,10 +287,10 @@ provided multiple times to provide multiple CA certificates.
 		return nil
 	})
 
-	r.Dispatch("target delete", &Help{
+	r.Dispatch("target delete", &app.Help{
 		Summary: "Forget about a targeted Vault",
 		Usage:   "safe target delete ALIAS",
-		Type:    DestructiveCommand,
+		Type:    app.DestructiveCommand,
 	}, func(command string, args ...string) error {
 		cfg := rc.Apply(opt.UseTarget)
 		if len(args) != 1 {
@@ -304,7 +305,7 @@ provided multiple times to provide multiple CA certificates.
 		return cfg.Write()
 	})
 
-	r.Dispatch("env", &Help{
+	r.Dispatch("env", &app.Help{
 		Summary: "Print the environment variables for the current target",
 		Usage:   "safe env",
 		Description: `
@@ -319,7 +320,7 @@ Print the environment variables representing the current target.
 Please note that if you specify --json, --bash or --fish then the output will be
 written to STDOUT instead of STDERR to make it easier to consume.
 		`,
-		Type: AdministrativeCommand,
+		Type: app.AdministrativeCommand,
 	}, func(command string, args ...string) error {
 		rc.Apply(opt.UseTarget)
 		if opt.Env.ForBash && opt.Env.ForFish && opt.Env.ForJSON {

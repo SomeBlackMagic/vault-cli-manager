@@ -1,9 +1,10 @@
-package main
+package cmd
 
 import (
 	"os"
 	"strconv"
 
+	"github.com/SomeBlackMagic/vault-cli-manager/app"
 	fmt "github.com/jhunt/go-ansi"
 	"github.com/SomeBlackMagic/vault-cli-manager/rc"
 	"github.com/SomeBlackMagic/vault-cli-manager/vault"
@@ -11,11 +12,11 @@ import (
 	uuid "github.com/pborman/uuid"
 )
 
-func registerGenerateCommands(r *Runner, opt *Options) {
-	r.Dispatch("gen", &Help{
+func registerGenerateCommands(r *app.Runner, opt *Options) {
+	r.Dispatch("gen", &app.Help{
 		Summary: "Generate a random password",
 		Usage:   "safe gen [-l <length>] [-p] PATH:KEY [PATH:KEY ...]",
-		Type:    DestructiveCommand,
+		Type:    app.DestructiveCommand,
 		Description: `
 LENGTH defaults to 64 characters.
 
@@ -41,7 +42,7 @@ The following options are recognized:
 			args = args[1:]
 		}
 
-		v := connect(true)
+		v := app.Connect(true)
 
 		for len(args) > 0 {
 			var path, key string
@@ -83,10 +84,10 @@ The following options are recognized:
 		return nil
 	})
 
-	r.Dispatch("uuid", &Help{
+	r.Dispatch("uuid", &app.Help{
 		Summary:     "Generate a new UUIDv4",
 		Usage:       "safe uuid PATH[:KEY]",
-		Type:        DestructiveCommand,
+		Type:        app.DestructiveCommand,
 		Description: ``,
 	}, func(command string, args ...string) error {
 		rc.Apply(opt.UseTarget)
@@ -99,7 +100,7 @@ The following options are recognized:
 
 		stringuuid := u.String()
 
-		v := connect(true)
+		v := app.Connect(true)
 
 		var path, key string
 		if vault.PathHasKey(args[0]) {
@@ -137,10 +138,10 @@ The following options are recognized:
 		return nil
 	})
 
-	r.Dispatch("ssh", &Help{
+	r.Dispatch("ssh", &app.Help{
 		Summary: "Generate one or more new SSH RSA keypair(s)",
 		Usage:   "safe ssh [NBITS] PATH [PATH ...]",
-		Type:    DestructiveCommand,
+		Type:    app.DestructiveCommand,
 		Description: `
 For each PATH given, a new SSH RSA public/private keypair will be generated,
 with a key strength of NBITS (which defaults to 2048).  The private keys will
@@ -161,7 +162,7 @@ public key, formatted for use in an SSH authorized_keys file, under 'public'.
 			r.ExitWithUsage("ssh")
 		}
 
-		v := connect(true)
+		v := app.Connect(true)
 		for _, path := range args {
 			s, err := v.Read(path)
 			if err != nil && !vault.IsNotFound(err) {
@@ -184,10 +185,10 @@ public key, formatted for use in an SSH authorized_keys file, under 'public'.
 		return nil
 	})
 
-	r.Dispatch("rsa", &Help{
+	r.Dispatch("rsa", &app.Help{
 		Summary: "Generate a new RSA keypair",
 		Usage:   "safe rsa [NBITS] PATH [PATH ...]",
-		Type:    DestructiveCommand,
+		Type:    app.DestructiveCommand,
 		Description: `
 For each PATH given, a new RSA public/private keypair will be generated with a,
 key strength of NBITS (which defaults to 2048).  The private keys will be stored
@@ -208,7 +209,7 @@ be PEM-encoded.
 			r.ExitWithUsage("rsa")
 		}
 
-		v := connect(true)
+		v := app.Connect(true)
 		for _, path := range args {
 			s, err := v.Read(path)
 			if err != nil && !vault.IsNotFound(err) {
@@ -231,10 +232,10 @@ be PEM-encoded.
 		return nil
 	})
 
-	r.Dispatch("dhparam", &Help{
+	r.Dispatch("dhparam", &app.Help{
 		Summary: "Generate Diffie-Helman key exchange parameters",
 		Usage:   "safe dhparam [NBITS] PATH",
-		Type:    DestructiveCommand,
+		Type:    app.DestructiveCommand,
 		Description: `
 NBITS defaults to 2048.
 `,
@@ -254,7 +255,7 @@ NBITS defaults to 2048.
 		}
 
 		path := args[0]
-		v := connect(true)
+		v := app.Connect(true)
 		s, err := v.Read(path)
 		if err != nil && !vault.IsNotFound(err) {
 			return err

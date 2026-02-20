@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"encoding/base64"
@@ -15,14 +15,15 @@ import (
 
 	"github.com/cloudfoundry-community/vaultkv"
 	fmt "github.com/jhunt/go-ansi"
+	"github.com/SomeBlackMagic/vault-cli-manager/app"
 	"github.com/SomeBlackMagic/vault-cli-manager/rc"
 	"github.com/SomeBlackMagic/vault-cli-manager/vault"
 )
 
-func registerAdminCommands(r *Runner, opt *Options) {
-	r.Dispatch("status", &Help{
+func registerAdminCommands(r *app.Runner, opt *Options) {
+	r.Dispatch("status", &app.Help{
 		Summary: "Print the status of the current target's backend nodes",
-		Type:    AdministrativeCommand,
+		Type:    app.AdministrativeCommand,
 		Usage:   "safe status",
 		Description: `
 Returns the seal status of each node in the Vault cluster.
@@ -36,10 +37,10 @@ The following options are recognized:
 
 	-e, --err-sealed  Causes safe to exit with a non-zero code if any of the
 	                  queried Vaults are sealed.
-		`,
+	`,
 	}, func(command string, args ...string) error {
 		cfg := rc.Apply(opt.UseTarget)
-		v := connect(false)
+		v := app.Connect(false)
 
 		type status struct {
 			addr   string
@@ -87,7 +88,7 @@ The following options are recognized:
 		return nil
 	})
 
-	r.Dispatch("local", &Help{
+	r.Dispatch("local", &app.Help{
 		Summary: "Run a local vault",
 		Usage:   "safe local (--memory|--file path/to/dir) [--as name] [--port port]",
 		Description: `
@@ -111,7 +112,7 @@ the path to a directory to use for the file backend.  The files created
 by the mechanism will be encrypted.  You will be given the seal key for
 subsequent activations of the Vault.
 `,
-		Type: AdministrativeCommand,
+		Type: app.AdministrativeCommand,
 	}, func(command string, args ...string) error {
 		if !opt.Local.Memory && opt.Local.File == "" {
 			return fmt.Errorf("Please specify either --memory or --file <path>")
@@ -179,7 +180,7 @@ listener "tcp" {
 			opt.Local.File = filepath.ToSlash(opt.Local.File)
 			fmt.Fprintf(f, "%s \"file\" { path = \"%s\" }\n", storageKey, opt.Local.File)
 			if _, err := os.Stat(opt.Local.File); err == nil || !os.IsNotExist(err) {
-				keys = append(keys, pr("Unseal Key", false, true))
+				keys = append(keys, app.Pr("Unseal Key", false, true))
 			}
 		}
 
@@ -207,13 +208,13 @@ listener "tcp" {
 		cfg := rc.Apply("")
 		name := opt.Local.As
 		if name == "" {
-			name = RandomName()
+			name = app.RandomName()
 			var n int
 			for n = 15; n > 0; n-- {
 				if existing, _ := cfg.Vault(name); existing == nil {
 					break
 				}
-				name = RandomName()
+				name = app.RandomName()
 			}
 			if n == 0 {
 				die(fmt.Errorf("I was unable to come up with a cool name for your local Vault.  Please try naming it with --as"))
@@ -233,7 +234,7 @@ listener "tcp" {
 		cfg.Write()
 
 		rc.Apply("")
-		v := connect(false)
+		v := app.Connect(false)
 
 		const maxStartupWait = 5 * time.Second
 		const betweenChecksWait = 250 * time.Millisecond
@@ -270,7 +271,7 @@ listener "tcp" {
 		cfg.SetToken(token)
 		os.Setenv("VAULT_TOKEN", token)
 		cfg.Write()
-		v = connect(true)
+		v = app.Connect(true)
 
 		exists, err := v.MountExists("secret")
 		if err != nil {
@@ -315,7 +316,7 @@ listener "tcp" {
 		return err
 	})
 
-	r.Dispatch("init", &Help{
+	r.Dispatch("init", &app.Help{
 		Summary: "Initialize a new vault",
 		Usage:   "safe init [--keys #] [--threshold #] [--single] [--json] [--no-mount] [--sealed]",
 		Description: `
@@ -364,10 +365,10 @@ Note that if --sealed is also set, this option is ignored (since the
 Vault will remain sealed).
 
 `,
-		Type: AdministrativeCommand,
+		Type: app.AdministrativeCommand,
 	}, func(command string, args ...string) error {
 		cfg := rc.Apply(opt.UseTarget)
-		v := connect(false)
+		v := app.Connect(false)
 
 		if opt.Init.NKeys == 0 {
 			opt.Init.NKeys = 5
@@ -401,7 +402,7 @@ Vault will remain sealed).
 			return err
 		}
 		os.Setenv("VAULT_TOKEN", token)
-		v = connect(true)
+		v = app.Connect(true)
 
 		/* be nice to the machines and machine-like intelligences */
 		if opt.Init.JSON {
@@ -549,13 +550,13 @@ Vault will remain sealed).
 		return nil
 	})
 
-	r.Dispatch("unseal", &Help{
+	r.Dispatch("unseal", &app.Help{
 		Summary: "Unseal the current target",
 		Usage:   "safe unseal",
-		Type:    AdministrativeCommand,
+		Type:    app.AdministrativeCommand,
 	}, func(command string, args ...string) error {
 		cfg := rc.Apply(opt.UseTarget)
-		v := connect(false)
+		v := app.Connect(false)
 
 		var addrs []string
 		if cfg.HasStrongbox() {
@@ -600,7 +601,7 @@ Vault will remain sealed).
 		keys := make([]string, nkeys)
 
 		for i := 0; i < nkeys; i++ {
-			keys[i] = pr(fmt.Sprintf("Key #%d", i+1), false, true)
+			keys[i] = app.Pr(fmt.Sprintf("Key #%d", i+1), false, true)
 		}
 
 		for _, addr := range addrs {
@@ -617,13 +618,13 @@ Vault will remain sealed).
 		return nil
 	})
 
-	r.Dispatch("seal", &Help{
+	r.Dispatch("seal", &app.Help{
 		Summary: "Seal the current target",
 		Usage:   "safe seal",
-		Type:    AdministrativeCommand,
+		Type:    app.AdministrativeCommand,
 	}, func(command string, args ...string) error {
 		cfg := rc.Apply(opt.UseTarget)
-		v := connect(true)
+		v := app.Connect(true)
 
 		var toSeal []string
 		if cfg.HasStrongbox() {
@@ -698,10 +699,10 @@ Vault will remain sealed).
 		return nil
 	})
 
-	r.Dispatch("rekey", &Help{
+	r.Dispatch("rekey", &app.Help{
 		Summary: "Re-key your Vault with new unseal keys",
 		Usage:   "safe rekey [--gpg email@address ...] [--keys #] [--threshold #]",
-		Type:    DestructiveCommand,
+		Type:    app.DestructiveCommand,
 		Description: `
 Rekeys Vault with new unseal keys. This will require a quorum
 of existing unseal keys to accomplish. This command can be used
@@ -767,7 +768,7 @@ secret/vault/seal/keys, as key1, key2, ... keyN.
 			return fmt.Errorf("When specifying more than 1 unseal key, you must also have more than one key required to unseal.")
 		}
 
-		v := connect(true)
+		v := app.Connect(true)
 		keys, err := v.ReKey(unsealKeys, opt.Rekey.Threshold, gpgKeys)
 		if err != nil {
 			return err

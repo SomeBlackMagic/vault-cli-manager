@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func duration(s string) (time.Duration, error) {
+func Duration(s string) (time.Duration, error) {
 	re := regexp.MustCompile(`^(\d+)([HhDdMmYy])$`)
 	if m := re.FindStringSubmatch(s); m != nil {
 		v, err := strconv.ParseUint(m[1], 10, 0)
@@ -29,8 +29,8 @@ func duration(s string) (time.Duration, error) {
 	return 0, fmt.Errorf("unrecognized time spec '%s'", s)
 }
 
-func uniq(l []string) []string {
-	seen := make(map[string] bool)
+func Uniq(l []string) []string {
+	seen := make(map[string]bool)
 	u := make([]string, 0)
 
 	for _, s := range l {

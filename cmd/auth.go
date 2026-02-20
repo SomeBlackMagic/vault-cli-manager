@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"encoding/json"
@@ -6,12 +6,13 @@ import (
 
 	"github.com/cloudfoundry-community/vaultkv"
 	fmt "github.com/jhunt/go-ansi"
+	"github.com/SomeBlackMagic/vault-cli-manager/app"
 	"github.com/SomeBlackMagic/vault-cli-manager/prompt"
 	"github.com/SomeBlackMagic/vault-cli-manager/rc"
 )
 
-func registerAuthCommands(r *Runner, opt *Options) {
-	r.Dispatch("auth", &Help{
+func registerAuthCommands(r *app.Runner, opt *Options) {
+	r.Dispatch("auth", &app.Help{
 		Summary: "Authenticate to the current target",
 		Usage:   "safe auth [--path <value>] (token|github|ldap|okta|userpass|approle)",
 		Description: `
@@ -34,10 +35,10 @@ Flags:
               the default when creating auth backends with the Vault CLI.
   -j, --json  For auth status, returns the information as a JSON object.
 `,
-		Type: AdministrativeCommand,
+		Type: app.AdministrativeCommand,
 	}, func(command string, args ...string) error {
 		cfg := rc.Apply(opt.UseTarget)
-		v := connect(false)
+		v := app.Connect(false)
 		v.Client().Client.SetAuthToken("")
 
 		method := "token"
@@ -117,9 +118,9 @@ Flags:
 			token = result.ClientToken
 
 		case "status":
-			v := connect(false)
+			v := app.Connect(false)
 			tokenInfo, err := v.Client().Client.TokenInfoSelf()
-			var tokenObj TokenStatus
+			var tokenObj app.TokenStatus
 			if err != nil {
 				if !(vaultkv.IsForbidden(err) ||
 					vaultkv.IsNotFound(err) ||
@@ -127,8 +128,8 @@ Flags:
 					return err
 				}
 			} else {
-				tokenObj.info = *tokenInfo
-				tokenObj.valid = true
+				tokenObj.Info = *tokenInfo
+				tokenObj.Valid = true
 			}
 
 			var output string
@@ -162,10 +163,10 @@ Flags:
 		return cfg.Write()
 	})
 
-	r.Dispatch("logout", &Help{
+	r.Dispatch("logout", &app.Help{
 		Summary: "Forget the authentication token of the currently targeted Vault",
 		Usage:   "safe logout\n",
-		Type:    AdministrativeCommand,
+		Type:    app.AdministrativeCommand,
 	}, func(command string, args ...string) error {
 		cfg := rc.Apply(opt.UseTarget)
 		cfg.SetToken("")
@@ -182,10 +183,10 @@ Flags:
 		return nil
 	})
 
-	r.Dispatch("renew", &Help{
+	r.Dispatch("renew", &app.Help{
 		Summary: "Renew one or more authentication tokens",
 		Usage:   "safe renew [all]\n",
-		Type:    AdministrativeCommand,
+		Type:    app.AdministrativeCommand,
 	}, func(command string, args ...string) error {
 		if len(args) > 0 {
 			if len(args) != 1 || args[0] != "all" {
@@ -200,7 +201,7 @@ Flags:
 					continue
 				}
 				fmt.Printf("renewing token against @C{%s}...\n", vault)
-				v := connect(true)
+				v := app.Connect(true)
 				if err := v.RenewLease(); err != nil {
 					fmt.Fprintf(os.Stderr, "@R{failed to renew token against %s: %s}\n", vault, err)
 					failed++
@@ -213,7 +214,7 @@ Flags:
 		}
 
 		rc.Apply(opt.UseTarget)
-		v := connect(true)
+		v := app.Connect(true)
 		if err := v.RenewLease(); err != nil {
 			return err
 		}

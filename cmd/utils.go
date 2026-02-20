@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"io"
@@ -9,15 +9,16 @@ import (
 
 	"github.com/jhunt/go-ansi"
 	fmt "github.com/jhunt/go-ansi"
+	"github.com/SomeBlackMagic/vault-cli-manager/app"
 	"github.com/SomeBlackMagic/vault-cli-manager/rc"
 	"github.com/SomeBlackMagic/vault-cli-manager/vault"
 )
 
-func registerUtilsCommands(r *Runner, opt *Options) {
-	r.Dispatch("fmt", &Help{
+func registerUtilsCommands(r *app.Runner, opt *Options) {
+	r.Dispatch("fmt", &app.Help{
 		Summary: "Reformat an existing name/value pair, into a new name",
 		Usage:   "safe fmt FORMAT PATH OLD-NAME NEW-NAME",
-		Type:    DestructiveCommand,
+		Type:    app.DestructiveCommand,
 		Description: `
 Take the value stored at PATH/OLD-NAME, format it a different way, and
 then save it at PATH/NEW-NAME.  This can be useful for generating a new
@@ -45,7 +46,7 @@ Supported formats:
 		oldKey := args[2]
 		newKey := args[3]
 
-		v := connect(true)
+		v := app.Connect(true)
 		s, err := v.Read(path)
 		if err != nil {
 			return err
@@ -66,10 +67,10 @@ Supported formats:
 		return v.Write(path, s)
 	})
 
-	r.Dispatch("prompt", &Help{
+	r.Dispatch("prompt", &app.Help{
 		Summary: "Print a prompt (useful for scripting safe command sets)",
 		Usage:   "safe echo Your Message Here:",
-		Type:    NonDestructiveCommand,
+		Type:    app.NonDestructiveCommand,
 	}, func(command string, args ...string) error {
 		// --no-clobber is ignored here, because there's no context of what you're
 		// about to be writing after a prompt, so not sure if we should or shouldn't prompt
@@ -79,10 +80,10 @@ Supported formats:
 		return nil
 	})
 
-	r.Dispatch("option", &Help{
+	r.Dispatch("option", &app.Help{
 		Summary: "View or edit global safe CLI options",
 		Usage:   "safe option [optionname=value]",
-		Type:    AdministrativeCommand,
+		Type:    app.AdministrativeCommand,
 		Description: `
 Currently available options are:
 
@@ -101,16 +102,16 @@ Currently available options are:
 		}
 
 		if len(args) == 0 {
-			tbl := table{}
+			tbl := app.Table{}
 			for _, entry := range optLookup {
 				value := "@R{false}"
 				if *entry.val {
 					value = "@G{true}"
 				}
-				tbl.addRow(entry.opt, ansi.Sprintf(value))
+				tbl.AddRow(entry.opt, ansi.Sprintf(value))
 			}
 
-			tbl.print()
+			tbl.Print()
 			return nil
 		}
 
@@ -155,10 +156,10 @@ Currently available options are:
 		return cfg.Write()
 	})
 
-	r.Dispatch("vault", &Help{
+	r.Dispatch("vault", &app.Help{
 		Summary: "Run arbitrary Vault CLI commands against the current target",
 		Usage:   "safe vault ...",
-		Type:    DestructiveCommand,
+		Type:    app.DestructiveCommand,
 	}, func(command string, args ...string) error {
 		rc.Apply(opt.UseTarget)
 
@@ -217,10 +218,10 @@ Currently available options are:
 		return nil
 	})
 
-	r.Dispatch("curl", &Help{
+	r.Dispatch("curl", &app.Help{
 		Summary: "Issue arbitrary HTTP requests to the current Vault (for diagnostics)",
 		Usage:   "safe curl [OPTIONS] METHOD REL-URI [DATA]",
-		Type:    DestructiveCommand,
+		Type:    app.DestructiveCommand,
 		Description: `
 This is a debugging and diagnostics tool.  You should not need to use
 'safe curl' for normal operation or interaction with a Vault.
@@ -258,7 +259,7 @@ sent as DATA.
 			data = []byte(strings.Join(args[2:], " "))
 		}
 
-		v := connect(true)
+		v := app.Connect(true)
 		res, err := v.Curl(method, url, data)
 		if err != nil {
 			return err

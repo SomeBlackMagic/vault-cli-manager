@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"crypto/rand"
@@ -10,15 +10,16 @@ import (
 	"time"
 
 	fmt "github.com/jhunt/go-ansi"
+	"github.com/SomeBlackMagic/vault-cli-manager/app"
 	"github.com/SomeBlackMagic/vault-cli-manager/rc"
 	"github.com/SomeBlackMagic/vault-cli-manager/vault"
 )
 
-func registerX509Commands(r *Runner, opt *Options) {
-	r.Dispatch("x509", &Help{
+func registerX509Commands(r *app.Runner, opt *Options) {
+	r.Dispatch("x509", &app.Help{
 		Summary: "Issue / Revoke X.509 Certificates and Certificate Authorities",
 		Usage:   "safe x509 <command> [OPTIONS]",
-		Type:    HiddenCommand,
+		Type:    app.HiddenCommand,
 		Description: `
 x509 provides a handful of sub-commands for issuing, signing and revoking
 SSL/TLS X.509 Certificates.  It does not utilize the pki Vault backend;
@@ -71,10 +72,10 @@ Here are the supported commands:
 		return nil
 	})
 
-	r.Dispatch("x509 validate", &Help{
+	r.Dispatch("x509 validate", &app.Help{
 		Summary: "Validate an X.509 Certificate / Private Key",
 		Usage:   "safe x509 validate [OPTIONS} path/to/certificate/or/ca",
-		Type:    NonDestructiveCommand,
+		Type:    app.NonDestructiveCommand,
 		Description: `
 Certificate validation can be checked in many ways, and this utility
 provides most of them, including:
@@ -145,7 +146,7 @@ The following options are recognized:
 		}
 
 		rc.Apply(opt.UseTarget)
-		v := connect(true)
+		v := app.Connect(true)
 
 		var ca *vault.X509
 		if opt.X509.Validate.SignedBy != "" {
@@ -224,10 +225,10 @@ The following options are recognized:
 		return nil
 	})
 
-	r.Dispatch("x509 issue", &Help{
+	r.Dispatch("x509 issue", &app.Help{
 		Summary: "Issue X.509 Certificates and Certificate Authorities",
 		Usage:   "safe x509 issue [OPTIONS] --name cn.example.com path/to/certificate",
-		Type:    DestructiveCommand,
+		Type:    app.DestructiveCommand,
 		Description: `
 Issue a new X.509 Certificate
 
@@ -295,7 +296,7 @@ The following options are recognized:
 			opt.X509.Issue.Subject = fmt.Sprintf("CN=%s", opt.X509.Issue.Name[0])
 		}
 
-		v := connect(true)
+		v := app.Connect(true)
 		if opt.SkipIfExists {
 			if _, err := v.Read(args[0]); err == nil {
 				if !opt.Quiet {
@@ -327,7 +328,7 @@ The following options are recognized:
 		}
 
 		cert, err := vault.NewCertificate(opt.X509.Issue.Subject,
-			uniq(opt.X509.Issue.Name), opt.X509.Issue.KeyUsage,
+			app.Uniq(opt.X509.Issue.Name), opt.X509.Issue.KeyUsage,
 			opt.X509.Issue.SigAlgorithm, opt.X509.Issue.Bits)
 		if err != nil {
 			return err
@@ -343,7 +344,7 @@ The following options are recognized:
 				opt.X509.Issue.TTL = "10y"
 			}
 		}
-		ttl, err := duration(opt.X509.Issue.TTL)
+		ttl, err := app.Duration(opt.X509.Issue.TTL)
 		if err != nil {
 			return err
 		}
@@ -370,10 +371,10 @@ The following options are recognized:
 		return nil
 	})
 
-	r.Dispatch("x509 reissue", &Help{
+	r.Dispatch("x509 reissue", &app.Help{
 		Summary: "Reissue X.509 Certificates and Certificate Authorities",
 		Usage:   "safe x509 reissue [OPTIONS] path/to/certificate",
-		Type:    DestructiveCommand,
+		Type:    app.DestructiveCommand,
 		Description: `
 Reissues an X.509 Certificate with a new key.
 
@@ -446,7 +447,7 @@ The following options are recognized:
 			r.ExitWithUsage("x509 reissue")
 		}
 
-		v := connect(true)
+		v := app.Connect(true)
 
 		/* find the Certificate that we want to renew */
 		s, err := v.Read(args[0])
@@ -459,7 +460,7 @@ The following options are recognized:
 		}
 
 		if len(opt.X509.Reissue.Name) > 0 {
-			ips, dns, email := vault.CategorizeSANs(uniq(opt.X509.Renew.Name))
+			ips, dns, email := vault.CategorizeSANs(app.Uniq(opt.X509.Renew.Name))
 			cert.Certificate.IPAddresses = ips
 			cert.Certificate.DNSNames = dns
 			cert.Certificate.EmailAddresses = email
@@ -507,7 +508,7 @@ The following options are recognized:
 		if opt.X509.Reissue.TTL == "" {
 			ttl = cert.Certificate.NotAfter.Sub(cert.Certificate.NotBefore)
 		} else {
-			ttl, err = duration(opt.X509.Reissue.TTL)
+			ttl, err = app.Duration(opt.X509.Reissue.TTL)
 			if err != nil {
 				return err
 			}
@@ -549,10 +550,10 @@ The following options are recognized:
 		return nil
 	})
 
-	r.Dispatch("x509 renew", &Help{
+	r.Dispatch("x509 renew", &app.Help{
 		Summary: "Renew X.509 Certificates and Certificate Authorities",
 		Usage:   "safe x509 renew [OPTIONS] path/to/certificate",
-		Type:    DestructiveCommand,
+		Type:    app.DestructiveCommand,
 		Description: `
 Renew an X.509 Certificate with existing key
 
@@ -619,7 +620,7 @@ The following options are recognized:
 			r.ExitWithUsage("x509 renew")
 		}
 
-		v := connect(true)
+		v := app.Connect(true)
 
 		/* find the Certificate that we want to renew */
 		s, err := v.Read(args[0])
@@ -632,7 +633,7 @@ The following options are recognized:
 		}
 
 		if len(opt.X509.Renew.Name) > 0 {
-			ips, dns, email := vault.CategorizeSANs(uniq(opt.X509.Renew.Name))
+			ips, dns, email := vault.CategorizeSANs(app.Uniq(opt.X509.Renew.Name))
 			cert.Certificate.IPAddresses = ips
 			cert.Certificate.DNSNames = dns
 			cert.Certificate.EmailAddresses = email
@@ -680,7 +681,7 @@ The following options are recognized:
 		if opt.X509.Renew.TTL == "" {
 			ttl = cert.Certificate.NotAfter.Sub(cert.Certificate.NotBefore)
 		} else {
-			ttl, err = duration(opt.X509.Renew.TTL)
+			ttl, err = app.Duration(opt.X509.Renew.TTL)
 			if err != nil {
 				return err
 			}
@@ -706,10 +707,10 @@ The following options are recognized:
 		return nil
 	})
 
-	r.Dispatch("x509 revoke", &Help{
+	r.Dispatch("x509 revoke", &app.Help{
 		Summary: "Revoke X.509 Certificates and Certificate Authorities",
 		Usage:   "safe x509 revoke [OPTIONS] path/to/certificate",
-		Type:    DestructiveCommand,
+		Type:    app.DestructiveCommand,
 		Description: `
 Revoke an X.509 Certificate via its Certificate Authority
 
@@ -724,7 +725,7 @@ The following options are recognized:
 		}
 
 		rc.Apply(opt.UseTarget)
-		v := connect(true)
+		v := app.Connect(true)
 
 		/* find the CA */
 		s, err := v.Read(opt.X509.Revoke.SignedBy)
@@ -762,10 +763,10 @@ The following options are recognized:
 		return nil
 	})
 
-	r.Dispatch("x509 show", &Help{
+	r.Dispatch("x509 show", &app.Help{
 		Summary: "Show the details of an X.509 Certificate",
 		Usage:   "safe x509 show path [path ...]",
-		Type:    NonDestructiveCommand,
+		Type:    app.NonDestructiveCommand,
 		Description: `
 When dealing with lots of different X.509 Certificates, it is important
 to be able to identify what lives at each path in the vault.  This command
@@ -783,7 +784,7 @@ prints out information about a certificate, including:
 		}
 
 		rc.Apply(opt.UseTarget)
-		v := connect(true)
+		v := app.Connect(true)
 
 		for _, path := range args {
 			s, err := v.Read(args[0])
@@ -963,10 +964,10 @@ prints out information about a certificate, including:
 		return nil
 	})
 
-	r.Dispatch("x509 crl", &Help{
+	r.Dispatch("x509 crl", &app.Help{
 		Summary: "Manage a X.509 Certificate Authority Revocation List",
 		Usage:   "safe x509 crl --renew path",
-		Type:    DestructiveCommand,
+		Type:    app.DestructiveCommand,
 		Description: `
 Each X.509 Certificate Authority (especially those generated by
 'safe issue --ca') carries with a list of certificates it has revoked,
@@ -983,7 +984,7 @@ Currently, only the --renew option is supported, and it is required:
 		}
 
 		rc.Apply(opt.UseTarget)
-		v := connect(true)
+		v := app.Connect(true)
 
 		s, err := v.Read(args[0])
 		if err != nil {

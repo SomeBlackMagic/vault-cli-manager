@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestSafe(t *testing.T) {
+func TestApp(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Main Suite")
+	RunSpecs(t, "App Suite")
 }
