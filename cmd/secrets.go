@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"errors"
@@ -7,19 +7,20 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/SomeBlackMagic/vault-cli-manager/app"
 	fmt "github.com/jhunt/go-ansi"
 	"github.com/SomeBlackMagic/vault-cli-manager/rc"
 	"github.com/SomeBlackMagic/vault-cli-manager/vault"
 	"gopkg.in/yaml.v2"
 )
 
-func registerSecretCommands(r *Runner, opt *Options) {
+func registerSecretCommands(r *app.Runner, opt *Options) {
 	writeHelper := func(prompt bool, insecure bool, command string, args ...string) error {
 		rc.Apply(opt.UseTarget)
 		if len(args) < 2 {
 			r.ExitWithUsage(command)
 		}
-		v := connect(true)
+		v := app.Connect(true)
 		path, args := args[0], args[1:]
 		s, err := v.Read(path)
 		if err != nil && !vault.IsNotFound(err) {
@@ -28,7 +29,7 @@ func registerSecretCommands(r *Runner, opt *Options) {
 		exists := (err == nil)
 		clobberKeys := []string{}
 		for _, arg := range args {
-			k, val, missing, err := parseKeyVal(arg, opt.Quiet)
+			k, val, missing, err := app.ParseKeyVal(arg, opt.Quiet)
 			if err != nil {
 				return err
 			}
@@ -41,7 +42,7 @@ func registerSecretCommands(r *Runner, opt *Options) {
 				continue
 			}
 			if missing {
-				val = pr(k, prompt, insecure)
+				val = app.Pr(k, prompt, insecure)
 			}
 			if err != nil {
 				return err
@@ -61,10 +62,10 @@ func registerSecretCommands(r *Runner, opt *Options) {
 		return v.Write(path, s)
 	}
 
-	r.Dispatch("ask", &Help{
+	r.Dispatch("ask", &app.Help{
 		Summary: "Create or update an insensitive configuration value",
 		Usage:   "safe ask PATH NAME=[VALUE] [NAME ...]",
-		Type:    DestructiveCommand,
+		Type:    app.DestructiveCommand,
 		Description: `
 Update a single path in the Vault with new or updated named attributes.
 Any existing name/value pairs not specified on the command-line will
@@ -78,10 +79,10 @@ is NOT obscured.
 		return writeHelper(false, false, "ask", args...)
 	})
 
-	r.Dispatch("set", &Help{
+	r.Dispatch("set", &app.Help{
 		Summary: "Create or update a secret",
 		Usage:   "safe set PATH NAME=[VALUE] [NAME ...]",
-		Type:    DestructiveCommand,
+		Type:    app.DestructiveCommand,
 		Description: `
 Update a single path in the Vault with new or updated named attributes.
 Any existing name/value pairs not specified on the command-line will be
@@ -112,10 +113,10 @@ working directory, and insert the contents into the Vault.
 		return writeHelper(true, true, "set", args...)
 	})
 
-	r.Dispatch("paste", &Help{
+	r.Dispatch("paste", &app.Help{
 		Summary: "Create or update a secret",
 		Usage:   "safe paste PATH NAME=[VALUE] [NAME ...]",
-		Type:    DestructiveCommand,
+		Type:    app.DestructiveCommand,
 		Description: `
 Works just like 'safe set', updating a single path in the Vault with new or
 updated named attributes.  Any existing name/value pairs not specified on the
@@ -131,10 +132,10 @@ like 1password or Lastpass.
 		return writeHelper(false, true, "paste", args...)
 	})
 
-	r.Dispatch("exists", &Help{
+	r.Dispatch("exists", &app.Help{
 		Summary: "Check to see if a secret exists in the Vault",
 		Usage:   "safe exists PATH",
-		Type:    NonDestructiveCommand,
+		Type:    app.NonDestructiveCommand,
 		Description: `
 When you want to see if a secret has been defined, but don't need to know
 what its value is, you can use 'safe exists'.  PATH can either be a partial
@@ -152,7 +153,7 @@ certificate validation failure, etc. occur, they will be printed as well.
 		if len(args) != 1 {
 			r.ExitWithUsage("exists")
 		}
-		v := connect(true)
+		v := app.Connect(true)
 		_, err := v.Read(args[0])
 		if err != nil {
 			if vault.IsNotFound(err) {
@@ -164,7 +165,7 @@ certificate validation failure, etc. occur, they will be printed as well.
 		return nil
 	})
 
-	r.Dispatch("get", &Help{
+	r.Dispatch("get", &app.Help{
 		Summary: "Retrieve the key/value pairs (or just keys) of one or more paths",
 		Usage:   "safe get [--keys] [--yaml] PATH [PATH ...]",
 		Description: `
@@ -199,14 +200,14 @@ unless the --keys option is specified.  In that case, the error will be displaye
 as a warning, but the output will be provided with an empty array for missing
 paths/keys.
 `,
-		Type: NonDestructiveCommand,
+		Type: app.NonDestructiveCommand,
 	}, func(command string, args ...string) error {
 		rc.Apply(opt.UseTarget)
 		if len(args) < 1 {
 			r.ExitWithUsage("get")
 		}
 
-		v := connect(true)
+		v := app.Connect(true)
 
 		// Recessive case of one path
 		if len(args) == 1 && !opt.Get.Yaml {

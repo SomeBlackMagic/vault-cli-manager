@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"os"
@@ -8,19 +8,20 @@ import (
 	"time"
 
 	"github.com/cloudfoundry-community/vaultkv"
+	"github.com/SomeBlackMagic/vault-cli-manager/app"
 	fmt "github.com/jhunt/go-ansi"
 	"github.com/SomeBlackMagic/vault-cli-manager/rc"
 	"github.com/SomeBlackMagic/vault-cli-manager/vault"
 )
 
-func registerTreeCommands(r *Runner, opt *Options) {
-	r.Dispatch("versions", &Help{
+func registerTreeCommands(r *app.Runner, opt *Options) {
+	r.Dispatch("versions", &app.Help{
 		Summary: "Print information about the versions of one or more paths",
 		Usage:   "safe versions PATH [PATHS...]",
-		Type:    NonDestructiveCommand,
+		Type:    app.NonDestructiveCommand,
 	}, func(command string, args ...string) error {
 		rc.Apply(opt.UseTarget)
-		v := connect(true)
+		v := app.Connect(true)
 
 		if len(args) == 0 {
 			return fmt.Errorf("No paths given")
@@ -43,9 +44,9 @@ func registerTreeCommands(r *Runner, opt *Options) {
 				fmt.Printf("@B{%s}:\n", args[i])
 			}
 
-			tbl := table{}
+			tbl := app.Table{}
 
-			tbl.setHeader("version", "status", "created at")
+			tbl.SetHeader("version", "status", "created at")
 
 			for j := range versions {
 				//Destroyed needs to be first because things can come back as both deleted _and_ destroyed.
@@ -63,14 +64,14 @@ func registerTreeCommands(r *Runner, opt *Options) {
 					createdAtString = versions[j].CreatedAt.Local().Format(time.RFC822)
 				}
 
-				tbl.addRow(
+				tbl.AddRow(
 					fmt.Sprintf("%d", versions[j].Version),
 					fmt.Sprintf(statusString),
 					createdAtString,
 				)
 			}
 
-			tbl.print()
+			tbl.Print()
 
 			if len(args) > 1 && i != len(args)-1 {
 				fmt.Printf("\n")
@@ -80,17 +81,17 @@ func registerTreeCommands(r *Runner, opt *Options) {
 		return nil
 	})
 
-	r.Dispatch("ls", &Help{
+	r.Dispatch("ls", &app.Help{
 		Summary: "Print the keys and sub-directories at one or more paths",
 		Usage:   "safe ls [-1|-q] [PATH ...]",
-		Type:    NonDestructiveCommand,
+		Type:    app.NonDestructiveCommand,
 		Description: `
 	Specifying the -1 flag will print one result per line.
 	Specifying the -q flag will show secrets which have been marked as deleted.
 `,
 	}, func(command string, args ...string) error {
 		rc.Apply(opt.UseTarget)
-		v := connect(true)
+		v := app.Connect(true)
 		display := func(paths []string) {
 			if opt.List.Single {
 				for _, s := range paths {
@@ -177,10 +178,10 @@ func registerTreeCommands(r *Runner, opt *Options) {
 		return nil
 	})
 
-	r.Dispatch("tree", &Help{
+	r.Dispatch("tree", &app.Help{
 		Summary: "Print a tree listing of one or more paths",
 		Usage:   "safe tree [-d|-q|--keys] [PATH ...]",
-		Type:    NonDestructiveCommand,
+		Type:    app.NonDestructiveCommand,
 		Description: `
 Walks the hierarchy of secrets stored underneath a given path, listing all
 reachable name/value pairs and displaying them in a tree format.  If '-d' is
@@ -201,7 +202,7 @@ flag does nothing for kv v1 mounts.
 		}
 		r1, _ := regexp.Compile("^ ")
 		r2, _ := regexp.Compile("^└")
-		v := connect(true)
+		v := app.Connect(true)
 		for i, path := range args {
 			secrets, err := v.ConstructSecrets(path, vault.TreeOpts{
 				FetchKeys:           opt.Tree.ShowKeys,
@@ -228,10 +229,10 @@ flag does nothing for kv v1 mounts.
 		return nil
 	})
 
-	r.Dispatch("paths", &Help{
+	r.Dispatch("paths", &app.Help{
 		Summary: "Print all of the known paths, one per line",
 		Usage:   "safe paths [-q|--keys] PATH [PATH ...]",
-		Type:    NonDestructiveCommand,
+		Type:    app.NonDestructiveCommand,
 		Description: `
 Walks the hierarchy of secrets stored underneath a given path, listing all
 reachable name/value pairs and displaying them in a list. If '-q' is given,
@@ -244,7 +245,7 @@ vaults. This flag does nothing for kv v1 mounts.
 		if len(args) < 1 {
 			args = append(args, "secret")
 		}
-		v := connect(true)
+		v := app.Connect(true)
 		for _, path := range args {
 			secrets, err := v.ConstructSecrets(path, vault.TreeOpts{
 				FetchKeys:           opt.Paths.ShowKeys,

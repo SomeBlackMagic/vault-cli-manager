@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"encoding/json"
@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	fmt "github.com/jhunt/go-ansi"
+	"github.com/SomeBlackMagic/vault-cli-manager/app"
 	"github.com/SomeBlackMagic/vault-cli-manager/prompt"
 	"github.com/SomeBlackMagic/vault-cli-manager/rc"
 	"github.com/SomeBlackMagic/vault-cli-manager/vault"
@@ -34,11 +35,11 @@ type exportVersion struct {
 	Value     map[string]string `json:"value,omitempty"`
 }
 
-func registerMigrationCommands(r *Runner, opt *Options) {
-	r.Dispatch("delete", &Help{
+func registerMigrationCommands(r *app.Runner, opt *Options) {
+	r.Dispatch("delete", &app.Help{
 		Summary: "Remove one or more path from the Vault",
 		Usage:   "safe delete [-rfDa] PATH [PATH ...]",
-		Type:    DestructiveCommand,
+		Type:    app.DestructiveCommand,
 		Description: `
 -d (--destroy) will cause KV v2 secrets to be destroyed instead of
 being marked as deleted. For KV v1 backends, this would do nothing.
@@ -50,7 +51,7 @@ of just the specified (or latest if unspecified) version.
 		if len(args) < 1 {
 			r.ExitWithUsage("delete")
 		}
-		v := connect(true)
+		v := app.Connect(true)
 
 		verb := "delete"
 		if opt.Delete.Destroy {
@@ -83,10 +84,10 @@ of just the specified (or latest if unspecified) version.
 		return nil
 	})
 
-	r.Dispatch("undelete", &Help{
+	r.Dispatch("undelete", &app.Help{
 		Summary: "Undelete a soft-deleted secret from a V2 backend",
 		Usage:   "safe undelete PATH [PATH ...]",
-		Type:    DestructiveCommand,
+		Type:    app.DestructiveCommand,
 		Description: `
 If no version is specified, this attempts to undelete the newest version of the secret
 This does not error if the specified version exists but is not deleted
@@ -100,7 +101,7 @@ been irrevocably destroyed. An error also occurs if a key is specified.
 		if len(args) < 1 {
 			r.ExitWithUsage("undelete")
 		}
-		v := connect(true)
+		v := app.Connect(true)
 
 		for _, path := range args {
 			var err error
@@ -136,10 +137,10 @@ been irrevocably destroyed. An error also occurs if a key is specified.
 		return nil
 	})
 
-	r.Dispatch("revert", &Help{
+	r.Dispatch("revert", &app.Help{
 		Summary: "Revert a secret to a previous version",
 		Usage:   "safe revert PATH VERSION",
-		Type:    DestructiveCommand,
+		Type:    app.DestructiveCommand,
 		Description: `
 -d (--deleted) will handle deleted versions by undeleting them, reading them, and then
 redeleting them.
@@ -148,7 +149,7 @@ redeleting them.
 		if len(args) != 2 {
 			r.ExitWithUsage("revert")
 		}
-		v := connect(true)
+		v := app.Connect(true)
 
 		secret, key, version := vault.ParsePath(args[0])
 		if key != "" {
@@ -230,10 +231,10 @@ redeleting them.
 		return nil
 	})
 
-	r.Dispatch("export", &Help{
+	r.Dispatch("export", &app.Help{
 		Summary: "Export one or more subtrees for migration / backup purposes",
 		Usage:   "safe export [-ad] PATH [PATH ...]",
-		Type:    NonDestructiveCommand,
+		Type:    app.NonDestructiveCommand,
 		Description: `
 Normally, the export will get only the latest version of each secret, and encode it in a format that is backwards-
 compatible with pre-1.0.0 versions of safe (and newer versions).
@@ -246,7 +247,7 @@ backup. Without this, deleted versions will be ignored.
 		if len(args) < 1 {
 			args = append(args, "secret")
 		}
-		v := connect(true)
+		v := app.Connect(true)
 
 		var toExport interface{}
 
@@ -369,10 +370,10 @@ backup. Without this, deleted versions will be ignored.
 		return nil
 	})
 
-	r.Dispatch("import", &Help{
+	r.Dispatch("import", &app.Help{
 		Summary: "Import name/value pairs into the current Vault",
 		Usage:   "safe import <backup/file.json",
-		Type:    DestructiveCommand,
+		Type:    app.DestructiveCommand,
 		Description: `
 -I (--ignore-destroyed) will keep destroyed versions from being replicated in the import by
 rting garbage data and then destroying it (which is originally done to preserve version numbering).
@@ -393,7 +394,7 @@ rting garbage data and then destroying it (which is originally done to preserve 
 			r.ExitWithUsage("import")
 		}
 
-		v := connect(true)
+		v := app.Connect(true)
 
 		type importFunc func([]byte) error
 
@@ -522,10 +523,10 @@ rting garbage data and then destroying it (which is originally done to preserve 
 		return fn(b)
 	})
 
-	r.Dispatch("move", &Help{
+	r.Dispatch("move", &app.Help{
 		Summary: "Move a secret from one path to another",
 		Usage:   "safe move [-rfd] OLD-PATH NEW-PATH",
-		Type:    DestructiveCommand,
+		Type:    app.DestructiveCommand,
 		Description: `
 Specifying the --deep (-d) flag will cause versions to be grabbed from the source
 and overwrite all versions of the secret at the destination.
@@ -535,7 +536,7 @@ and overwrite all versions of the secret at the destination.
 			r.ExitWithUsage("move")
 		}
 
-		v := connect(true)
+		v := app.Connect(true)
 		if vault.PathHasKey(args[0]) || vault.PathHasKey(args[1]) {
 			if opt.Move.Deep {
 				return fmt.Errorf("Cannot deep copy a specific key")
@@ -573,10 +574,10 @@ and overwrite all versions of the secret at the destination.
 		return nil
 	})
 
-	r.Dispatch("copy", &Help{
+	r.Dispatch("copy", &app.Help{
 		Summary: "Copy a secret from one path to another",
 		Usage:   "safe copy [-rfd] OLD-PATH NEW-PATH",
-		Type:    DestructiveCommand,
+		Type:    app.DestructiveCommand,
 		Description: `
 Specifying the --deep (-d) flag will cause all living versions to be grabbed from the source
 and overwrite all versions of the secret at the destination.
@@ -586,7 +587,7 @@ and overwrite all versions of the secret at the destination.
 		if len(args) != 2 {
 			r.ExitWithUsage("copy")
 		}
-		v := connect(true)
+		v := app.Connect(true)
 
 		if vault.PathHasKey(args[0]) || vault.PathHasKey(args[1]) {
 			if opt.Copy.Deep {

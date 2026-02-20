@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"fmt"
@@ -23,7 +23,7 @@ func fail(err error) {
 	}
 }
 
-func parseKeyVal(key string, quiet bool) (string, string, bool, error) {
+func ParseKeyVal(key string, quiet bool) (string, string, bool, error) {
 	if strings.Index(key, "=") >= 0 {
 		l := strings.SplitN(key, "=", 2)
 		if l[1] == "" {
@@ -62,7 +62,7 @@ func parseKeyVal(key string, quiet bool) (string, string, bool, error) {
 	return key, "", true, nil
 }
 
-func pr(label string, confirm bool, secure bool) string {
+func Pr(label string, confirm bool, secure bool) string {
 	if !confirm {
 		if secure {
 			return prompt.Secure("%s: ", label)
@@ -82,19 +82,19 @@ func pr(label string, confirm bool, secure bool) string {
 	}
 }
 
-type table struct {
+type Table struct {
 	headers []string
 	rows    [][]string
 	numCols int
 }
 
-func (t *table) setHeader(headers ...string) {
+func (t *Table) SetHeader(headers ...string) {
 	t._assertValidRowWidth(len(headers))
 	t.headers = headers
 	t._formatHeaders()
 }
 
-func (t *table) addRow(cols ...string) {
+func (t *Table) AddRow(cols ...string) {
 	t._assertValidRowWidth(len(cols))
 	if !ansi.ShouldColorize(os.Stdout) {
 		for i := range cols {
@@ -104,7 +104,7 @@ func (t *table) addRow(cols ...string) {
 	t.rows = append(t.rows, cols)
 }
 
-func (t *table) print() {
+func (t *Table) Print() {
 	if t._getNumCols() == 0 {
 		return
 	}
@@ -120,7 +120,7 @@ func (t *table) print() {
 	}
 }
 
-func (t *table) _assertValidRowWidth(numCols int) {
+func (t *Table) _assertValidRowWidth(numCols int) {
 	if numCols == 0 {
 		panic("Cannot append row with zero columns")
 	}
@@ -132,7 +132,7 @@ func (t *table) _assertValidRowWidth(numCols int) {
 
 }
 
-func (t *table) _getNumCols() int {
+func (t *Table) _getNumCols() int {
 	if len(t.headers) != 0 {
 		return len(t.headers)
 	}
@@ -142,7 +142,7 @@ func (t *table) _getNumCols() int {
 	return 0
 }
 
-func (t *table) _calcColWidths() []int {
+func (t *Table) _calcColWidths() []int {
 	ret := make([]int, t._getNumCols())
 	for i := 0; i < len(ret); i++ {
 		ret[i] = t._calcColWidth(i)
@@ -151,7 +151,7 @@ func (t *table) _calcColWidths() []int {
 	return ret
 }
 
-func (t *table) _calcColWidth(colNum int) int {
+func (t *Table) _calcColWidth(colNum int) int {
 	maxWidth := 0
 	if len(t.headers) != 0 {
 		maxWidth = t._calcDisplayWidth(t.headers[colNum])
@@ -167,7 +167,7 @@ func (t *table) _calcColWidth(colNum int) int {
 	return maxWidth
 }
 
-func (t *table) _calcDisplayWidth(cell string) int {
+func (t *Table) _calcDisplayWidth(cell string) int {
 	const asciiEscapeStart = '\033'
 	const asciiEscapeEnd = 'm'
 	count := 0
@@ -191,13 +191,13 @@ func (t *table) _calcDisplayWidth(cell string) int {
 	return count
 }
 
-func (t *table) _formatHeaders() {
+func (t *Table) _formatHeaders() {
 	for colNum := range t.headers {
 		t.headers[colNum] = t._sprintf("@M{%s}", t.headers[colNum])
 	}
 }
 
-func (t *table) _printRow(row []string, widths []int) {
+func (t *Table) _printRow(row []string, widths []int) {
 	const colBuffer = 2 //two spaces min between cols
 	//print every col except last, inserting buffer spaces
 	for colNum := 0; colNum < len(row)-1; colNum++ {
@@ -211,7 +211,7 @@ func (t *table) _printRow(row []string, widths []int) {
 	os.Stdout.Write([]byte{'\n'})
 }
 
-func (t *table) _printCell(cell string, spaces int) {
+func (t *Table) _printCell(cell string, spaces int) {
 	os.Stdout.Write([]byte(cell))
 
 	if spaces == 0 {
@@ -226,7 +226,7 @@ func (t *table) _printCell(cell string, spaces int) {
 	os.Stdout.Write(spaceBuf)
 }
 
-func (t *table) _sprintf(f string, args ...interface{}) string {
+func (t *Table) _sprintf(f string, args ...interface{}) string {
 	ret := ansi.Sprintf(f, args...)
 	if !ansi.ShouldColorize(os.Stdout) {
 		ret = t._stripColor(ret)
@@ -234,6 +234,6 @@ func (t *table) _sprintf(f string, args ...interface{}) string {
 	return ret
 }
 
-func (t *table) _stripColor(s string) string {
+func (t *Table) _stripColor(s string) string {
 	return regexp.MustCompile("\033\\[\\d+(;\\d+)?m").ReplaceAllString(s, "")
 }

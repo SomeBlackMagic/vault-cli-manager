@@ -1,20 +1,21 @@
-package main
+package cmd
 
 import (
 	"os"
 	"strings"
 
+	"github.com/SomeBlackMagic/vault-cli-manager/app"
 	fmt "github.com/jhunt/go-ansi"
 )
 
-func registerHelpCommands(r *Runner, opt *Options) {
-	r.Dispatch("version", &Help{
+func registerHelpCommands(r *app.Runner, opt *Options, version string) {
+	r.Dispatch("version", &app.Help{
 		Summary: "Print the version of the safe CLI",
 		Usage:   "safe version",
-		Type:    AdministrativeCommand,
+		Type:    app.AdministrativeCommand,
 	}, func(command string, args ...string) error {
-		if Version != "" {
-			fmt.Fprintf(os.Stderr, "safe v%s\n", Version)
+		if version != "" {
+			fmt.Fprintf(os.Stderr, "safe v%s\n", version)
 		} else {
 			fmt.Fprintf(os.Stderr, "safe (development build)\n")
 		}
