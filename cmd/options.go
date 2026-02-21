@@ -162,6 +162,12 @@ type Options struct {
 	UUID   struct{} `cli:"uuid"`
 	Option struct{} `cli:"option"`
 
+	Sync struct {
+		Pull  struct{} `cli:"pull"`
+		Plan  struct{} `cli:"plan"`
+		Apply struct{} `cli:"apply"`
+	} `cli:"sync"`
+
 	X509 struct {
 		Validate struct {
 			CA         bool     `cli:"-A, --ca"`
