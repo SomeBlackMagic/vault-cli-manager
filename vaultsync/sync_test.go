@@ -351,7 +351,7 @@ var _ = Describe("Diff", func() {
 	})
 
 	Describe("FormatChangeSummary", func() {
-		It("formats the summary correctly", func() {
+		It("formats the summary with create/update/destroy wording", func() {
 			cs := vaultsync.ChangeSet{
 				Changes: []vaultsync.Change{
 					{Type: vaultsync.ChangeAdd},
@@ -363,11 +363,14 @@ var _ = Describe("Diff", func() {
 			summary := vaultsync.FormatChangeSummary(cs)
 			Expect(summary).To(ContainSubstring("2"))
 			Expect(summary).To(ContainSubstring("1"))
+			Expect(summary).To(ContainSubstring("to create"))
+			Expect(summary).To(ContainSubstring("to update"))
+			Expect(summary).To(ContainSubstring("to destroy"))
 		})
 	})
 
 	Describe("FormatDiff", func() {
-		It("formats add change", func() {
+		It("formats add change with [create] label", func() {
 			c := vaultsync.Change{
 				Type:      vaultsync.ChangeAdd,
 				Path:      "secret/new",
@@ -375,10 +378,11 @@ var _ = Describe("Diff", func() {
 			}
 			output := vaultsync.FormatDiff(c)
 			Expect(output).To(ContainSubstring("secret/new"))
+			Expect(output).To(ContainSubstring("[create]"))
 			Expect(output).To(ContainSubstring("key"))
 		})
 
-		It("formats delete change", func() {
+		It("formats delete change with [destroy] label", func() {
 			c := vaultsync.Change{
 				Type:       vaultsync.ChangeDelete,
 				Path:       "secret/old",
@@ -386,6 +390,19 @@ var _ = Describe("Diff", func() {
 			}
 			output := vaultsync.FormatDiff(c)
 			Expect(output).To(ContainSubstring("secret/old"))
+			Expect(output).To(ContainSubstring("[destroy]"))
+		})
+
+		It("formats modify change with [update] label", func() {
+			c := vaultsync.Change{
+				Type:       vaultsync.ChangeModify,
+				Path:       "secret/app",
+				LocalData:  map[string]interface{}{"key": "new"},
+				RemoteData: map[string]interface{}{"key": "old"},
+			}
+			output := vaultsync.FormatDiff(c)
+			Expect(output).To(ContainSubstring("secret/app"))
+			Expect(output).To(ContainSubstring("[update]"))
 		})
 
 		It("formats modify change with nested JSON diff", func() {
@@ -405,13 +422,81 @@ var _ = Describe("Diff", func() {
 			Expect(output).To(ContainSubstring("host"))
 		})
 
-		It("formats no-change", func() {
+		It("formats no-change in gray with [no changes] label", func() {
 			c := vaultsync.Change{
 				Type: vaultsync.ChangeNone,
 				Path: "secret/same",
 			}
 			output := vaultsync.FormatDiff(c)
 			Expect(output).To(ContainSubstring("secret/same"))
+			Expect(output).To(ContainSubstring("[no changes]"))
+			// Verify gray ANSI codes are present
+			Expect(output).To(ContainSubstring("\033[90m"))
+			Expect(output).To(ContainSubstring("\033[0m"))
+		})
+
+		It("includes trailing blank line for spacing between blocks", func() {
+			c := vaultsync.Change{
+				Type:      vaultsync.ChangeAdd,
+				Path:      "secret/new",
+				LocalData: map[string]interface{}{"key": "val"},
+			}
+			output := vaultsync.FormatDiff(c)
+			Expect(output).To(HaveSuffix("\n\n"))
+		})
+	})
+
+	Describe("SplitDiff", func() {
+		It("finds changed middle portion", func() {
+			prefix, aMid, bMid, suffix := vaultsync.SplitDiff("abcXXdef", "abcYYYdef")
+			Expect(prefix).To(Equal("abc"))
+			Expect(aMid).To(Equal("XX"))
+			Expect(bMid).To(Equal("YYY"))
+			Expect(suffix).To(Equal("def"))
+		})
+
+		It("handles identical strings", func() {
+			prefix, aMid, bMid, suffix := vaultsync.SplitDiff("abc", "abc")
+			Expect(prefix).To(Equal("abc"))
+			Expect(aMid).To(Equal(""))
+			Expect(bMid).To(Equal(""))
+			Expect(suffix).To(Equal(""))
+		})
+
+		It("handles entirely different strings", func() {
+			prefix, aMid, bMid, suffix := vaultsync.SplitDiff("abc", "xyz")
+			Expect(prefix).To(Equal(""))
+			Expect(aMid).To(Equal("abc"))
+			Expect(bMid).To(Equal("xyz"))
+			Expect(suffix).To(Equal(""))
+		})
+
+		It("handles difference at end (prefix only common)", func() {
+			prefix, aMid, bMid, suffix := vaultsync.SplitDiff("abcdef", "abcxyz")
+			Expect(prefix).To(Equal("abc"))
+			Expect(aMid).To(Equal("def"))
+			Expect(bMid).To(Equal("xyz"))
+			Expect(suffix).To(Equal(""))
+		})
+
+		It("handles difference at start (suffix only common)", func() {
+			prefix, aMid, bMid, suffix := vaultsync.SplitDiff("XXXdef", "YYdef")
+			Expect(prefix).To(Equal(""))
+			Expect(aMid).To(Equal("XXX"))
+			Expect(bMid).To(Equal("YY"))
+			Expect(suffix).To(Equal("def"))
+		})
+
+		It("handles connection string change", func() {
+			prefix, aMid, bMid, suffix := vaultsync.SplitDiff(
+				`"postgresql://admin:oldpass@db.host:5432/mydb"`,
+				`"postgresql://admin:newpass@db.host:5432/mydb"`,
+			)
+			// "pass" is common to both "oldpass" and "newpass", so it's part of the suffix
+			Expect(prefix).To(Equal(`"postgresql://admin:`))
+			Expect(aMid).To(Equal("old"))
+			Expect(bMid).To(Equal("new"))
+			Expect(suffix).To(Equal(`pass@db.host:5432/mydb"`))
 		})
 	})
 })
