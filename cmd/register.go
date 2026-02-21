@@ -14,4 +14,5 @@ func RegisterAll(r *app.Runner, opt *Options, version string) {
 	registerUtilsCommands(r, opt)
 	registerX509Commands(r, opt)
 	registerAdminCommands(r, opt)
+	registerSyncCommands(r, opt)
 }
